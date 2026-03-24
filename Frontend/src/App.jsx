@@ -77,7 +77,7 @@ function App() {
               <article className="rounded-2xl border border-white/10 bg-slate-900/80 p-6 backdrop-blur-md transition hover:-translate-y-1 hover:border-emerald-400/40 hover:bg-slate-800/80">
                 <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-emerald-500/20 text-emerald-200">🎨</div>
                 <h3 className="mb-2 text-lg font-bold">Experiencia visual moderna</h3>
-                <p className="text-sm text-slate-300">Mensajería, notificaciones y permisos a medida para entrenadores y familiasExperiencia visual moderna.</p>
+                <p className="text-sm text-slate-300">Diseño moderno y responsivo para una mejor experiencia de usuario.</p>
               </article>
             </div>
           </div>
