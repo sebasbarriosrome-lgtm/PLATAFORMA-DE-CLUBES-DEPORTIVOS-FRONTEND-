@@ -1,8 +1,9 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
+import Clubs from "./pages/clubs";
 
 function LandingPage() {
   return (
@@ -34,20 +35,21 @@ function LandingPage() {
               Próximamente
             </a>
 
-            <a href="/register" className="hover:text-white transition">
+            <Link to="/register" state={{ from: "landing" }} className="hover:text-white transition">
               Registrarse
-            </a>
+            </Link>
 
-            <a href="/login" className="hover:text-white transition">
+            <Link to="/login" state={{ from: "landing" }} className="hover:text-white transition">
               Iniciar sesión
-            </a>
+            </Link>
 
-            <a
-              href="/crear-club"
+            <Link
+              to="/crear-club"
+              state={{ from: "landing" }}
               className="rounded-lg border border-emerald-400 px-4 py-2 text-emerald-100 hover:bg-emerald-400 hover:text-slate-950 transition"
             >
               Crear mi club
-            </a>
+            </Link>
           </nav>
 
           <button className="md:hidden rounded-lg border border-emerald-400 px-3 py-2 text-sm text-emerald-100 hover:bg-emerald-400 hover:text-slate-950 transition">
@@ -78,10 +80,10 @@ function LandingPage() {
               </a>
 
               <a
-                href="#features"
+                href="/clubs"
                 className="rounded-xl border border-white/30 px-8 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
               >
-                Ver funciones
+                Explorar clubes
               </a>
             </div>
 
@@ -221,6 +223,7 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/crear-club" element={<CrearClub />} />
+        <Route path="/clubs" element={<Clubs />} />
       </Routes>
     </BrowserRouter>
   );

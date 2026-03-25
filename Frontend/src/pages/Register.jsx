@@ -1,8 +1,10 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 
 export default function Register() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const returnPath = location.state?.from === "clubs" ? "/clubs" : "/";
   const [tipo, setTipo] = useState("deportista");
   const [deporte, setDeporte] = useState("Seleccionar deporte");
   const [fechaNacimiento, setFechaNacimiento] = useState("");
@@ -123,8 +125,6 @@ export default function Register() {
         throw new Error(dataRes);
       }
 
-      alert(err.message);
-
       alert("Usuario registrado");
       navigate("/login");
     } catch (err) {
@@ -138,7 +138,17 @@ export default function Register() {
   const errorClass = "text-red-400 text-sm mt-1";
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white px-4 py-10">
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white px-4 py-10">
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-3 py-2 text-sm shadow-lg shadow-black/40">
+        <button
+          type="button"
+          onClick={() => navigate(returnPath)}
+          className="font-semibold text-cyan-200 hover:text-cyan-100"
+        >
+          ← Volver
+        </button>
+        <span className="text-slate-100 font-bold">ClubZone</span>
+      </div>
       <div className="w-full max-w-3xl bg-slate-900/60 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 p-8 sm:p-10 shadow-[0_20px_60px_rgba(16,185,129,0.35)]">
         <div className="text-center mb-7">
           <h2 className="text-4xl sm:text-5xl font-extrabold">Crear cuenta</h2>
