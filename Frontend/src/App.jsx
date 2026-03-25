@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
-import Clubs from "./pages/clubs";
+import Clubs from "./pages/Clubs";
 
 function LandingPage() {
   return (
@@ -35,11 +35,19 @@ function LandingPage() {
               Próximamente
             </a>
 
-            <Link to="/register" state={{ from: "landing" }} className="hover:text-white transition">
+            <Link
+              to="/register"
+              state={{ from: "landing" }}
+              className="hover:text-white transition"
+            >
               Registrarse
             </Link>
 
-            <Link to="/login" state={{ from: "landing" }} className="hover:text-white transition">
+            <Link
+              to="/login"
+              state={{ from: "landing" }}
+              className="hover:text-white transition"
+            >
               Iniciar sesión
             </Link>
 
