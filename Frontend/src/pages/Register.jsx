@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { authService } from "../services/Auth.service";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -15,54 +16,26 @@ export default function Register() {
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
 
-  // Manejar cambios en los inputs
   const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prevState) => ({
-      ...prevState,
-      [name]: value,
-    }));
-    // Limpiar el error del campo cuando el usuario empieza a escribir
-    if (errors[name]) {
-      setErrors((prevErrors) => ({
-        ...prevErrors,
-        [name]: "",
-      }));
-    }
+    setFormData({ ...formData, [e.target.name]: e.target.value });
+    setErrors({});
   };
 
-  // Validación básica
   const validateForm = () => {
     const newErrors = {};
 
-    if (!formData.nombre.trim()) {
-      newErrors.nombre = "El nombre es obligatorio";
-    }
-
-    if (!formData.apellido.trim()) {
-      newErrors.apellido = "El apellido es obligatorio";
-    }
-
-    if (!formData.email.trim()) {
-      newErrors.email = "El email es obligatorio";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "El email no es válido";
-    }
-
-    if (!formData.password.trim()) {
-      newErrors.password = "La contraseña es obligatoria";
-    } else if (formData.password.length < 6) {
-      newErrors.password = "La contraseña debe tener al menos 6 caracteres";
-    }
+    if (!formData.nombre) newErrors.nombre = "El nombre es obligatorio";
+    if (!formData.apellido) newErrors.apellido = "El apellido es obligatorio";
+    if (!formData.email) newErrors.email = "El email es obligatorio";
+    if (!formData.password || formData.password.length < 6)
+      newErrors.password = "Mínimo 6 caracteres";
 
     return newErrors;
   };
 
-  // Manejar el envío del formulario
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validar formulario
     const newErrors = validateForm();
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -70,58 +43,23 @@ export default function Register() {
     }
 
     setLoading(true);
-    setSuccessMessage("");
 
     try {
-      const response = await fetch("http://localhost:8080/usuarios/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formData),
-      });
+      const data = await authService.register(formData);
 
-      const data = await response.json();
+      setSuccessMessage(data.message);
+      setFormData({ nombre: "", apellido: "", email: "", password: "" });
 
-      if (response.ok) {
-        setSuccessMessage(data.message);
-
-        setFormData({
-          nombre: "",
-          apellido: "",
-          email: "",
-          password: "",
-        });
-
-        setErrors({});
-
-        setTimeout(() => {
-          navigate("/login");
-        }, 2000);
-      } else {
-        setErrors({
-          general: data.message,
-        });
-      }
-    } catch (error) {
-      console.error(error);
-
-      setErrors({
-        general: "Error al conectar con el servidor",
-      });
+      setTimeout(() => navigate("/login"), 2000);
+    } catch (err) {
+      setErrors({ general: err.message });
     } finally {
       setLoading(false);
     }
   };
 
-  const inputClass =
-    "w-full px-4 py-3 rounded-lg border border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all";
-
-  const errorClass = "text-red-600 text-sm mt-1";
-
   return (
     <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-50 via-blue-50 to-slate-100 text-slate-900 px-4 py-10">
-      {/* Botón Volver */}
       <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-lg shadow-slate-200/60 border border-slate-200">
         <button
           type="button"
@@ -141,14 +79,12 @@ export default function Register() {
           <p className="mt-2 text-slate-600">Crea tu cuenta para comenzar</p>
         </div>
 
-        {/* Mensaje de error general */}
         {errors.general && (
           <div className="mb-4 p-4 bg-red-50 border border-red-200 text-red-700 rounded-lg">
             {errors.general}
           </div>
         )}
 
-        {/* Mensaje de éxito */}
         {successMessage && (
           <div className="mb-4 p-4 bg-green-50 border border-green-200 text-green-700 rounded-lg">
             {successMessage}
@@ -156,7 +92,6 @@ export default function Register() {
         )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Campo Nombre */}
           <div>
             <label
               htmlFor="nombre"
@@ -165,20 +100,21 @@ export default function Register() {
               Nombre
             </label>
             <input
-              type="text"
               id="nombre"
               name="nombre"
+              type="text"
+              placeholder="Ingresa tu nombre"
               value={formData.nombre}
               onChange={handleChange}
-              placeholder="Ingresa tu nombre"
-              className={`${inputClass} ${
+              className={`w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 errors.nombre ? "border-red-500 focus:ring-red-500" : ""
               }`}
             />
-            {errors.nombre && <p className={errorClass}>{errors.nombre}</p>}
+            {errors.nombre && (
+              <p className="text-red-600 text-sm mt-2">{errors.nombre}</p>
+            )}
           </div>
 
-          {/* Campo Apellido */}
           <div>
             <label
               htmlFor="apellido"
@@ -187,20 +123,21 @@ export default function Register() {
               Apellido
             </label>
             <input
-              type="text"
               id="apellido"
               name="apellido"
+              type="text"
+              placeholder="Ingresa tu apellido"
               value={formData.apellido}
               onChange={handleChange}
-              placeholder="Ingresa tu apellido"
-              className={`${inputClass} ${
+              className={`w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 errors.apellido ? "border-red-500 focus:ring-red-500" : ""
               }`}
             />
-            {errors.apellido && <p className={errorClass}>{errors.apellido}</p>}
+            {errors.apellido && (
+              <p className="text-red-600 text-sm mt-2">{errors.apellido}</p>
+            )}
           </div>
 
-          {/* Campo Email */}
           <div>
             <label
               htmlFor="email"
@@ -209,20 +146,21 @@ export default function Register() {
               Email
             </label>
             <input
-              type="email"
               id="email"
               name="email"
+              type="email"
+              placeholder="tu@email.com"
               value={formData.email}
               onChange={handleChange}
-              placeholder="tu@email.com"
-              className={`${inputClass} ${
+              className={`w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 errors.email ? "border-red-500 focus:ring-red-500" : ""
               }`}
             />
-            {errors.email && <p className={errorClass}>{errors.email}</p>}
+            {errors.email && (
+              <p className="text-red-600 text-sm mt-2">{errors.email}</p>
+            )}
           </div>
 
-          {/* Campo Password */}
           <div>
             <label
               htmlFor="password"
@@ -231,30 +169,30 @@ export default function Register() {
               Contraseña
             </label>
             <input
-              type="password"
               id="password"
               name="password"
+              type="password"
+              placeholder="Ingresa tu contraseña"
               value={formData.password}
               onChange={handleChange}
-              placeholder="Ingresa tu contraseña"
-              className={`${inputClass} ${
+              className={`w-full px-4 py-3 rounded-xl border border-slate-300 bg-slate-50 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all ${
                 errors.password ? "border-red-500 focus:ring-red-500" : ""
               }`}
             />
-            {errors.password && <p className={errorClass}>{errors.password}</p>}
+            {errors.password && (
+              <p className="text-red-600 text-sm mt-2">{errors.password}</p>
+            )}
           </div>
 
-          {/* Botón Registrarse */}
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 font-bold text-lg rounded-lg bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 transition-all disabled:from-gray-400 disabled:to-gray-400 disabled:cursor-not-allowed mt-6"
+            className="w-full py-4 font-bold text-lg rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 text-white hover:from-blue-700 hover:to-blue-800 shadow-lg shadow-blue-200/40 transition-all duration-300 disabled:cursor-not-allowed disabled:from-slate-400 disabled:to-slate-500"
           >
             {loading ? "Registrando..." : "Registrarse"}
           </button>
         </form>
 
-        {/* Link a Login */}
         <p className="mt-6 text-center text-sm text-slate-600">
           ¿Ya tienes cuenta?{" "}
           <span

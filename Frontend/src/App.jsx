@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
 import Clubs from "./pages/Clubs";
+import UserProfile from "./pages/UserProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function LandingPage() {
@@ -266,6 +267,12 @@ function App() {
           element={
             <ProtectedRoute>
               <CrearClub />
+            </ProtectedRoute>
+          }
+          path="/UserProfile"
+          element={
+            <ProtectedRoute>
+              <UserProfile />
             </ProtectedRoute>
           }
         />
