@@ -33,7 +33,13 @@ const Login = () => {
       const data = await response.json();
 
       if (response.ok) {
-        console.log("Usuario logueado:", data.usuario);
+        console.log("Usuario logueado:", data.email);
+        console.log("Rol:", data.rol);
+        console.log("Token:", data.token);
+
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("email", data.email);
+        localStorage.setItem("rol", data.rol);
 
         navigate("/");
       } else {

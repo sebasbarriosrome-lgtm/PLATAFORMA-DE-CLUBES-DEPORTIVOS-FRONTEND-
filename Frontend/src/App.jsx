@@ -4,6 +4,7 @@ import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
 import Clubs from "./pages/Clubs";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 function LandingPage() {
   return (
@@ -99,16 +100,28 @@ function LandingPage() {
 
             <div className="mt-8 grid gap-4 sm:grid-cols-3">
               <div className="rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 text-left shadow-sm shadow-slate-200/50">
-                <p className="text-xs uppercase tracking-widest text-blue-600">Todo en uno</p>
-                <p className="mt-2 text-sm font-semibold text-slate-900">Planificación, cuotas y miembros</p>
+                <p className="text-xs uppercase tracking-widest text-blue-600">
+                  Todo en uno
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  Planificación, cuotas y miembros
+                </p>
               </div>
               <div className="rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 text-left shadow-sm shadow-slate-200/50">
-                <p className="text-xs uppercase tracking-widest text-blue-600">Rápido</p>
-                <p className="mt-2 text-sm font-semibold text-slate-900">Configura tu espacio en minutos</p>
+                <p className="text-xs uppercase tracking-widest text-blue-600">
+                  Rápido
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  Configura tu espacio en minutos
+                </p>
               </div>
               <div className="rounded-3xl border border-slate-200 bg-white/90 px-4 py-3 text-left shadow-sm shadow-slate-200/50">
-                <p className="text-xs uppercase tracking-widest text-blue-600">Seguro</p>
-                <p className="mt-2 text-sm font-semibold text-slate-900">Datos protegidos siempre</p>
+                <p className="text-xs uppercase tracking-widest text-blue-600">
+                  Seguro
+                </p>
+                <p className="mt-2 text-sm font-semibold text-slate-900">
+                  Datos protegidos siempre
+                </p>
               </div>
             </div>
 
@@ -117,14 +130,18 @@ function LandingPage() {
                 <p className="text-xs uppercase tracking-widest text-blue-600">
                   +coming soon
                 </p>
-                <p className="text-2xl font-bold text-slate-900">Crecimiento rápido</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  Crecimiento rápido
+                </p>
               </div>
 
               <div className="rounded-xl bg-white/60 px-4 py-3 text-left border border-slate-200">
                 <p className="text-xs uppercase tracking-widest text-blue-600">
                   99.9% uptime
                 </p>
-                <p className="text-2xl font-bold text-slate-900">Disponibilidad total</p>
+                <p className="text-2xl font-bold text-slate-900">
+                  Disponibilidad total
+                </p>
               </div>
             </div>
           </div>
@@ -146,7 +163,9 @@ function LandingPage() {
                 <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-full bg-blue-100 text-blue-600">
                   🏟
                 </div>
-                <h3 className="mb-2 text-lg font-bold text-slate-900">Gestión de clubes</h3>
+                <h3 className="mb-2 text-lg font-bold text-slate-900">
+                  Gestión de clubes
+                </h3>
                 <p className="text-sm text-slate-600">
                   Crea y administra categorías y horarios.
                 </p>
@@ -235,11 +254,21 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
+        {/* 🔓 PÚBLICA */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/crear-club" element={<CrearClub />} />
         <Route path="/clubs" element={<Clubs />} />
+
+        {/* 🔐 PROTEGIDA */}
+        <Route
+          path="/crear-club"
+          element={
+            <ProtectedRoute>
+              <CrearClub />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
