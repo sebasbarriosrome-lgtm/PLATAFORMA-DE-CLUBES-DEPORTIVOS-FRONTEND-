@@ -73,7 +73,7 @@ export default function Register() {
     setSuccessMessage("");
 
     try {
-      const response = await fetch("/api/auth/register", {
+      const response = await fetch("http://localhost:8080/usuarios/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -81,27 +81,34 @@ export default function Register() {
         body: JSON.stringify(formData),
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        setSuccessMessage("¡Registro exitoso! Bienvenido");
-        // Limpiar formulario
+        setSuccessMessage(data.message);
+
         setFormData({
           nombre: "",
           apellido: "",
           email: "",
           password: "",
         });
+
         setErrors({});
-        // Redirigir al login después de un tiempo
+
         setTimeout(() => {
           navigate("/login");
         }, 2000);
       } else {
-        const errorData = await response.json();
-        setErrors({ general: errorData.message || "Error en el registro" });
+        setErrors({
+          general: data.message,
+        });
       }
     } catch (error) {
-      console.error("Error:", error);
-      setErrors({ general: "Error al conectar con el servidor" });
+      console.error(error);
+
+      setErrors({
+        general: "Error al conectar con el servidor",
+      });
     } finally {
       setLoading(false);
     }
@@ -128,7 +135,9 @@ export default function Register() {
 
       <div className="w-full max-w-md bg-white rounded-2xl border border-slate-200 p-8 shadow-xl shadow-slate-200/40">
         <div className="text-center mb-8">
-          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">Registrarse</h2>
+          <h2 className="text-3xl sm:text-4xl font-extrabold text-slate-900">
+            Registrarse
+          </h2>
           <p className="mt-2 text-slate-600">Crea tu cuenta para comenzar</p>
         </div>
 
@@ -149,7 +158,10 @@ export default function Register() {
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Campo Nombre */}
           <div>
-            <label htmlFor="nombre" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="nombre"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Nombre
             </label>
             <input
@@ -168,7 +180,10 @@ export default function Register() {
 
           {/* Campo Apellido */}
           <div>
-            <label htmlFor="apellido" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="apellido"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Apellido
             </label>
             <input
@@ -187,7 +202,10 @@ export default function Register() {
 
           {/* Campo Email */}
           <div>
-            <label htmlFor="email" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="email"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Email
             </label>
             <input
@@ -206,7 +224,10 @@ export default function Register() {
 
           {/* Campo Password */}
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-slate-700 mb-2">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-slate-700 mb-2"
+            >
               Contraseña
             </label>
             <input

@@ -13,15 +13,37 @@ const Login = () => {
     setError("");
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // Validación básica frontend
     if (!form.email || !form.password) {
       setError("Todos los campos son obligatorios");
       return;
     }
-    navigate("/");
+
+    try {
+      const response = await fetch("http://localhost:8080/usuarios/login", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(form),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("Usuario logueado:", data.usuario);
+
+        navigate("/");
+      } else {
+        setError(data.message);
+      }
+    } catch (error) {
+      console.error(error);
+
+      setError("Error al conectar con el servidor");
+    }
   };
 
   return (
