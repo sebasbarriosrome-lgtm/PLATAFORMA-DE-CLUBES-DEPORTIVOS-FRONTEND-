@@ -1,10 +1,9 @@
 import { useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
+import { clubsService } from "../services/Clubs.service";
 
 export default function CrearClub() {
   const navigate = useNavigate();
-  const location = useLocation();
-  const returnPath = location.state?.from === "clubs" ? "/clubs" : "/";
 
   const [form, setForm] = useState({
     nombre: "",
@@ -37,17 +36,49 @@ export default function CrearClub() {
     return newErrors;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
+
     const validation = validateForm();
     if (Object.keys(validation).length > 0) {
       setErrors(validation);
       return;
     }
 
-    setSuccess("Club creado con éxito. Serás redirigido al listado...");
-    console.log("Club creado:", form);
-    setTimeout(() => navigate(returnPath), 1200);
+    try {
+      const clubData = {
+        nombre: form.nombre,
+        ciudad: form.ciudad,
+        descripcion: form.descripcion,
+        logoUrl: form.urlLogo,
+        bannerUrl: form.urlBanner,
+        colorPrimario: form.colorPrimario,
+        colorSecundario: form.colorSecundario,
+        contacto: form.contacto,
+      };
+
+      console.log("Enviando al backend:", clubData);
+
+      await clubsService.create(clubData);
+
+      setSuccess(" Club creado correctamente");
+      {
+        errors.general && (
+          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded">
+            {errors.general}
+          </div>
+        );
+      }
+
+      setTimeout(() => {
+        navigate("/clubs");
+      }, 1000);
+    } catch (error) {
+      console.error(error);
+      setErrors({
+        general: error.message || "Error al crear club",
+      });
+    }
   };
 
   const inputBase =
@@ -58,7 +89,7 @@ export default function CrearClub() {
       <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-lg shadow-slate-200/50 border border-slate-200">
         <button
           type="button"
-          onClick={() => navigate(returnPath)}
+          onClick={() => navigate(-1)}
           className="font-semibold text-blue-600 hover:text-blue-700"
         >
           ← Volver
@@ -79,32 +110,6 @@ export default function CrearClub() {
               Completa los datos principales, define tus colores y agrega los
               enlaces para el logo y el banner.
             </p>
-          </div>
-
-          <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5 shadow-sm">
-            <p className="text-sm font-semibold text-slate-700">
-              Resumen rápido
-            </p>
-            <div className="mt-5 space-y-3 text-sm text-slate-600">
-              <p>
-                Nombre:{" "}
-                <span className="font-semibold text-slate-900">
-                  {form.nombre || "-"}
-                </span>
-              </p>
-              <p>
-                Ciudad:{" "}
-                <span className="font-semibold text-slate-900">
-                  {form.ciudad || "-"}
-                </span>
-              </p>
-              <p>
-                Contacto:{" "}
-                <span className="font-semibold text-slate-900">
-                  {form.contacto || "-"}
-                </span>
-              </p>
-            </div>
           </div>
         </div>
 

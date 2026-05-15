@@ -1,15 +1,11 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { authService } from "../services/Auth.service";
 
 const Login = () => {
   const navigate = useNavigate();
-  const location = useLocation();
 
-  // ✅ Si viene de clubs -> vuelve a clubs
-  // ✅ Si no -> va al perfil
-  const returnPath =
-    location.state?.from === "clubs" ? "/clubs" : "/UserProfile";
+  const returnPath = "/UserProfile"; // ✅ siempre va al perfil
 
   const [form, setForm] = useState({ email: "", password: "" });
   const [error, setError] = useState("");
@@ -30,16 +26,12 @@ const Login = () => {
     try {
       const data = await authService.login(form);
 
-      console.log("Usuario logueado:", data.email);
-      console.log("Rol:", data.rol);
-      console.log("Token:", data.token);
-
-      // ✅ Guardar datos
+      // ✅ Guardar token
       localStorage.setItem("token", data.token);
       localStorage.setItem("email", data.email);
       localStorage.setItem("rol", data.rol);
 
-      // ✅ Redirección CORRECTA
+      // ✅ REDIRECCIÓN SIEMPRE AL PERFIL
       navigate(returnPath);
     } catch (error) {
       console.error(error);
@@ -53,7 +45,7 @@ const Login = () => {
       <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-lg border border-slate-200">
         <button
           type="button"
-          onClick={() => navigate(returnPath)}
+          onClick={() => navigate(-1)}
           className="font-semibold text-blue-600 hover:text-blue-700"
         >
           ← Volver

@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
-import Clubs from "./pages/Clubs";
+import Clubs from "./pages/Directorio";
 import UserProfile from "./pages/UserProfile";
 import ProtectedRoute from "./components/ProtectedRoute";
 
@@ -255,13 +255,15 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* 🔓 PÚBLICA */}
+        {/* 🔓 PUBLICAS */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/clubs" element={<Clubs />} />
+        {/* EVITA PANTALLA BLANCA */}
+        <Route path="*" element={<LandingPage />} />
 
-        {/* 🔐 PROTEGIDA */}
+        {/* 🔐 PROTEGIDAS */}
         <Route
           path="/crear-club"
           element={
@@ -269,6 +271,9 @@ function App() {
               <CrearClub />
             </ProtectedRoute>
           }
+        />
+
+        <Route
           path="/UserProfile"
           element={
             <ProtectedRoute>

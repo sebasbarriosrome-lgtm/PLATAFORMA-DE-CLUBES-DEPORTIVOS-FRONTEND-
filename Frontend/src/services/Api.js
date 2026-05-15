@@ -11,11 +11,17 @@ export const apiRequest = async (endpoint, options = {}) => {
     ...options,
   });
 
-  const data = await response.json();
+  const text = await response.text(); // ✅ leer UNA sola vez
+
+  let data = {};
+  try {
+    data = text ? JSON.parse(text) : {};
+  } catch {
+    data = {};
+  }
 
   if (!response.ok) {
-    const text = await response.text();
-    throw new Error(text || "Error en la petición");
+    throw new Error(data.message || "Error en la petición");
   }
 
   return data;
