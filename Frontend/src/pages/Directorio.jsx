@@ -17,7 +17,7 @@ export default function Directorio() {
   const [cityFilter, setCityFilter] = useState("Todas las ciudades");
   const [stateFilter, setStateFilter] = useState("Todos los estados");
 
-  // ✅ LLAMADA AL BACKEND
+  // LLAMADA AL BACKEND
   useEffect(() => {
     const fetchClubs = async () => {
       try {
@@ -33,7 +33,7 @@ export default function Directorio() {
     fetchClubs();
   }, []);
 
-  // ✅ FILTROS DINÁMICOS
+  // FILTROS DINÁMICOS
   const cities = useMemo(() => {
     return ["Todas las ciudades", ...new Set(clubs.map((c) => c.ciudad))];
   }, [clubs]);
@@ -61,7 +61,7 @@ export default function Directorio() {
     });
   }, [clubs, searchText, cityFilter, stateFilter]);
 
-  // ✅ LOADING
+  // LOADING
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">

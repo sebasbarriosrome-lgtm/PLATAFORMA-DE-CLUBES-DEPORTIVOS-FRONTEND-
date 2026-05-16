@@ -23,7 +23,7 @@ export default function UserProfile() {
           firstName: data.name ? data.name.split(" ")[0] : "",
           lastName: data.name ? data.name.split(" ").slice(1).join(" ") : "",
           email: data.email || "",
-          phone: data.phone || "",
+          telefono: data.telefono || "",
           birthDate: data.birthDate
             ? new Date(data.birthDate).toISOString().split("T")[0]
             : "",
@@ -60,7 +60,7 @@ export default function UserProfile() {
       firstName: user?.name ? user.name.split(" ")[0] : "",
       lastName: user?.name ? user.name.split(" ").slice(1).join(" ") : "",
       email: user?.email || "",
-      phone: user?.phone || "",
+      telefono: user?.telefono || "",
       birthDate: user?.birthDate
         ? new Date(user.birthDate).toISOString().split("T")[0]
         : "",
@@ -76,22 +76,86 @@ export default function UserProfile() {
   const handleSave = async () => {
     try {
       setSaving(true);
+      setError(null);
+
+      // VALIDACIONES
+
+      if (!editedUser.email) {
+        setError("El email es obligatorio");
+        return;
+      }
+
+      if (!editedUser.email.includes("@")) {
+        setError("Email inválido");
+        return;
+      }
+
+      if (editedUser.telefono && editedUser.telefono.length < 7) {
+        setError("Teléfono inválido");
+        return;
+      }
+
+      if (editedUser.birthDate) {
+        const today = new Date().toISOString().split("T")[0];
+
+        if (editedUser.birthDate > today) {
+          setError("La fecha de nacimiento no puede ser futura");
+          return;
+        }
+      }
+
+      // DATOS A ENVIAR
+
       const updatedData = {
-        name: `${editedUser.firstName} ${editedUser.lastName}`.trim(),
+        name: editedUser.firstName,
+        apellido: editedUser.lastName,
         email: editedUser.email,
-        phone: editedUser.phone,
-        birthDate: editedUser.birthDate,
-        photoUrl: editedUser.photoUrl,
+        telefono: editedUser.telefono || null,
+        birthDate: editedUser.birthDate || null,
+        photoUrl: editedUser.photoUrl || null,
       };
-      const data = await apiRequest("/usuarios/perfil", {
+      console.log("📤 Enviando:", updatedData);
+
+      // PUT
+
+      await apiRequest("/usuarios/perfil", {
         method: "PUT",
         body: JSON.stringify(updatedData),
       });
-      setUser(data);
+
+      // GET NUEVO PERFIL
+
+      const perfilActualizado = await apiRequest("/usuarios/perfil");
+
+      // ACTUALIZAR UI
+
+      setUser(perfilActualizado);
+
+      setEditedUser({
+        firstName: perfilActualizado.name
+          ? perfilActualizado.name.split(" ")[0]
+          : "",
+
+        lastName: perfilActualizado.name
+          ? perfilActualizado.name.split(" ").slice(1).join(" ")
+          : "",
+
+        email: perfilActualizado.email || "",
+
+        telefono: perfilActualizado.telefono || "",
+
+        birthDate: perfilActualizado.birthDate
+          ? new Date(perfilActualizado.birthDate).toISOString().split("T")[0]
+          : "",
+
+        photoUrl: perfilActualizado.photoUrl || "",
+      });
+
       setIsModalOpen(false);
-      // Optionally show success message
     } catch (err) {
-      setError(err.message);
+      console.error("❌ Error:", err);
+
+      setError(err.message || "No se pudo actualizar el perfil");
     } finally {
       setSaving(false);
     }
@@ -186,8 +250,8 @@ export default function UserProfile() {
                 </label>
                 <input
                   type="text"
-                  name="phone"
-                  value={editedUser.phone}
+                  name="telefono"
+                  value={editedUser.telefono}
                   onChange={handleChange}
                   className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                 />
@@ -241,10 +305,18 @@ export default function UserProfile() {
           <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
             {/* Avatar y nombre */}
             <div className="flex flex-col items-center mb-6">
-              <div className="w-24 h-24 rounded-full bg-gradient-to-br from-blue-200 to-blue-100 flex items-center justify-center mb-4 shadow-md">
-                <span className="text-3xl font-bold text-blue-600">
-                  {user?.name ? getInitials(user.name) : "?"}
-                </span>
+              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-blue-200 to-blue-100 flex items-center justify-center mb-4 shadow-md">
+                {user?.photoUrl ? (
+                  <img
+                    src={user.photoUrl}
+                    alt="Foto de perfil"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-3xl font-bold text-blue-600">
+                    {user?.name ? getInitials(user.name) : "?"}
+                  </span>
+                )}
               </div>
               <h1 className="text-2xl font-bold text-slate-900">
                 {user?.name || "Nombre de usuario"}
@@ -280,7 +352,7 @@ export default function UserProfile() {
                 <div>
                   <p className="text-sm text-slate-500">Teléfono</p>
                   <p className="text-lg font-semibold text-slate-900">
-                    {user?.phone || "No especificado"}
+                    {user?.telefono || "No especificado"}
                   </p>
                 </div>
               </div>
