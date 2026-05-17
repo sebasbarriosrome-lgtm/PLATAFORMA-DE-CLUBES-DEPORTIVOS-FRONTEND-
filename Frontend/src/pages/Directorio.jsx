@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { Link } from "react-router-dom";
 import { clubsService } from "../services/clubs.service";
+import { useNavigate } from "react-router-dom";
 
 const stateClasses = {
   activo: "text-emerald-700 bg-emerald-100",
@@ -10,6 +11,7 @@ const stateClasses = {
 };
 
 export default function Directorio() {
+  const navigate = useNavigate();
   const [clubs, setClubs] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -72,6 +74,17 @@ export default function Directorio() {
 
   return (
     <div className="min-h-screen bg-white text-slate-900">
+      {/* Botón volver */}
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-md border border-slate-200">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="font-semibold text-blue-600 hover:text-blue-700"
+        >
+          ← Volver
+        </button>
+        <span className="text-slate-900 font-bold">ClubZone</span>
+      </div>
       {/* HEADER */}
       <header className="border-b border-slate-200 bg-white/80 backdrop-blur sticky top-0 z-40">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3">
@@ -159,17 +172,11 @@ export default function Directorio() {
                         {club.estado}
                       </span>
                     </div>
-
-                    <p className="mt-2 text-sm text-slate-600">
-                      {club.descripcion}
-                    </p>
-
                     <div className="mt-3 text-xs text-slate-500">
                       📍 {club.ciudad}
                     </div>
-
                     <Link
-                      to={`/template/${club.slug}`}
+                      to={`/clubs/${club.id}`}
                       className="mt-4 block w-full rounded-xl bg-blue-600 py-2 text-center text-white hover:bg-blue-700 transition"
                     >
                       Ver club

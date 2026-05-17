@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { apiRequest } from "../services/api"; // 👈 IMPORTANTE
+import { apiRequest } from "../services/api";
 
 export default function UserProfile() {
   const navigate = useNavigate();
@@ -31,7 +31,6 @@ export default function UserProfile() {
         });
       } catch (err) {
         setError(err.message);
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -49,13 +48,20 @@ export default function UserProfile() {
       .toUpperCase();
   };
 
-  const handleEditProfile = () => {
-    setIsModalOpen(true);
+  const formatDate = (dateString) => {
+    if (!dateString) return "-";
+    const date = new Date(dateString);
+    return date.toLocaleDateString("es-ES", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    });
   };
+
+  const handleEditProfile = () => setIsModalOpen(true);
 
   const handleCloseModal = () => {
     setIsModalOpen(false);
-    // Reset editedUser to current user data
     setEditedUser({
       firstName: user?.name ? user.name.split(" ")[0] : "",
       lastName: user?.name ? user.name.split(" ").slice(1).join(" ") : "",
@@ -78,34 +84,6 @@ export default function UserProfile() {
       setSaving(true);
       setError(null);
 
-      // VALIDACIONES
-
-      if (!editedUser.email) {
-        setError("El email es obligatorio");
-        return;
-      }
-
-      if (!editedUser.email.includes("@")) {
-        setError("Email inválido");
-        return;
-      }
-
-      if (editedUser.telefono && editedUser.telefono.length < 7) {
-        setError("Teléfono inválido");
-        return;
-      }
-
-      if (editedUser.birthDate) {
-        const today = new Date().toISOString().split("T")[0];
-
-        if (editedUser.birthDate > today) {
-          setError("La fecha de nacimiento no puede ser futura");
-          return;
-        }
-      }
-
-      // DATOS A ENVIAR
-
       const updatedData = {
         name: editedUser.firstName,
         apellido: editedUser.lastName,
@@ -114,20 +92,13 @@ export default function UserProfile() {
         birthDate: editedUser.birthDate || null,
         photoUrl: editedUser.photoUrl || null,
       };
-      console.log("📤 Enviando:", updatedData);
-
-      // PUT
 
       await apiRequest("/usuarios/perfil", {
         method: "PUT",
         body: JSON.stringify(updatedData),
       });
 
-      // GET NUEVO PERFIL
-
       const perfilActualizado = await apiRequest("/usuarios/perfil");
-
-      // ACTUALIZAR UI
 
       setUser(perfilActualizado);
 
@@ -135,288 +106,277 @@ export default function UserProfile() {
         firstName: perfilActualizado.name
           ? perfilActualizado.name.split(" ")[0]
           : "",
-
         lastName: perfilActualizado.name
           ? perfilActualizado.name.split(" ").slice(1).join(" ")
           : "",
-
         email: perfilActualizado.email || "",
-
         telefono: perfilActualizado.telefono || "",
-
         birthDate: perfilActualizado.birthDate
           ? new Date(perfilActualizado.birthDate).toISOString().split("T")[0]
           : "",
-
         photoUrl: perfilActualizado.photoUrl || "",
       });
 
       setIsModalOpen(false);
     } catch (err) {
-      console.error("❌ Error:", err);
-
-      setError(err.message || "No se pudo actualizar el perfil");
+      setError(err.message || "No se pudo actualizar");
     } finally {
       setSaving(false);
     }
   };
 
   const handleExploreClubs = () => {
-    // Navegar a la vista de clubes
     navigate("/clubs");
   };
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block h-8 w-8 animate-spin rounded-full border-4 border-blue-300 border-t-blue-600"></div>
-          <p className="mt-4 text-slate-600">Cargando perfil...</p>
-        </div>
-      </div>
-    );
-  }
+  // ✅ NUEVO BOTÓN
+  const handleMyClub = async () => {
+    try {
+      // ✅ CONSULTA SI EL USUARIO YA TIENE CLUB
+      const data = await apiRequest("/clubs/panel-club");
 
-  if (error) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 flex items-center justify-center">
-        <div className="text-center bg-white p-8 rounded-lg shadow-lg">
-          <p className="text-red-600 font-semibold">Error: {error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="mt-4 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 transition"
-          >
-            Reintentar
-          </button>
-        </div>
-      </div>
-    );
-  }
+      // ✅ SI EXISTE CLUB
+      if (data && data.id) {
+        navigate("/panel-club");
+        return;
+      }
+
+      // ✅ SI NO EXISTE
+      navigate("/crear-club");
+    } catch (error) {
+      console.error(error);
+
+      // ✅ SI EL BACKEND RESPONDE ERROR
+      // SIGNIFICA QUE NO TIENE CLUB
+      navigate("/crear-club");
+    }
+  };
 
   const logout = () => {
     localStorage.clear();
     navigate("/login");
   };
 
+  if (loading) {
+    return <div className="text-center p-10">Cargando perfil...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-10">
+        <p className="text-red-500">Error: {error}</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
-      {isModalOpen ? (
-        /* Pantalla de edición completa */
-        <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold text-slate-900 mb-8 text-center">
-            Editar perfil
-          </h1>
-          <div className="bg-white rounded-2xl shadow-lg p-8">
-            <div className="space-y-6">
+    <div className="min-h-screen bg-slate-100 py-10 px-4">
+      <div className="max-w-3xl mx-auto space-y-6">
+        <div className="bg-white rounded-[32px] shadow-[0_35px_80px_rgba(15,23,42,0.08)] p-8">
+          <div className="flex flex-col items-center gap-4">
+            <div className="w-28 h-28 rounded-full overflow-hidden bg-slate-100 ring-4 ring-white shadow-sm flex items-center justify-center">
+              {user?.photoUrl ? (
+                <img
+                  src={user.photoUrl}
+                  alt="Foto de perfil"
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <span className="text-4xl font-semibold text-sky-600">
+                  {getInitials(user?.name)}
+                </span>
+              )}
+            </div>
+            <div className="text-center">
+              <h1 className="text-3xl font-semibold text-slate-900">
+                {user?.name}
+              </h1>
+              <p className="mt-2 text-slate-500">{user?.email}</p>
+            </div>
+            <button
+              onClick={handleEditProfile}
+              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+            >
+              Editar perfil
+            </button>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-[28px] shadow p-8">
+          <div className="mb-6">
+            <h2 className="text-xl font-semibold text-slate-900">
+              Información personal
+            </h2>
+            <p className="mt-2 text-sm text-slate-500">
+              Revisa tus datos y mantén tu perfil actualizado.
+            </p>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
+                <span className="text-xl">📞</span>
+              </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Nombre
-                </label>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  Teléfono
+                </p>
+                <p className="mt-2 text-base font-medium text-slate-900">
+                  {user?.telefono || "No registrado"}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
+                <span className="text-xl">📅</span>
+              </div>
+              <div>
+                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                  Fecha de nacimiento
+                </p>
+                <p className="mt-2 text-base font-medium text-slate-900">
+                  {formatDate(user?.birthDate)}
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-[32px] bg-gradient-to-r from-sky-600 to-blue-600 p-8 text-white shadow-lg">
+          <div className="max-w-2xl">
+            <h2 className="text-2xl font-semibold">Explorar clubes</h2>
+            <p className="mt-2 text-sm text-slate-100">
+              Descubre clubes deportivos en tu zona y únete a la comunidad.
+            </p>
+            <button
+              onClick={handleExploreClubs}
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
+            >
+              Ver clubes disponibles →
+            </button>
+            <button
+              onClick={handleMyClub}
+              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
+            >
+              Ir a mi club →
+            </button>
+          </div>
+        </div>
+
+        <div className="text-center">
+          <button
+            onClick={logout}
+            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-7 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+          >
+            Cerrar sesión
+          </button>
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4">
+          <div className="w-full max-w-2xl rounded-[28px] bg-white p-6 shadow-2xl">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-xl font-semibold text-slate-900">
+                  Editar perfil
+                </h3>
+                <p className="mt-1 text-sm text-slate-500">
+                  Actualiza tus datos personales.
+                </p>
+              </div>
+              <button
+                onClick={handleCloseModal}
+                className="rounded-full bg-slate-100 px-3 py-2 text-sm text-slate-700 hover:bg-slate-200"
+              >
+                Cerrar
+              </button>
+            </div>
+            <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Nombre</span>
                 <input
                   type="text"
                   name="firstName"
                   value={editedUser.firstName}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Apellido
-                </label>
+              </label>
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Apellido</span>
                 <input
                   type="text"
                   name="lastName"
                   value={editedUser.lastName}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Email
-                </label>
+              </label>
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Email</span>
                 <input
                   type="email"
                   name="email"
                   value={editedUser.email}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Contacto (Teléfono)
-                </label>
+              </label>
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Teléfono</span>
                 <input
                   type="text"
                   name="telefono"
                   value={editedUser.telefono}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  Fecha de nacimiento
-                </label>
+              </label>
+            </div>
+            <div className="mt-4">
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Fecha de nacimiento</span>
                 <input
                   type="date"
                   name="birthDate"
                   value={editedUser.birthDate}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-slate-700">
-                  URL de la foto
-                </label>
+              </label>
+            </div>
+            <div className="mt-4">
+              <label className="space-y-2 text-sm text-slate-700">
+                <span>Foto de perfil (URL)</span>
+
                 <input
                   type="url"
                   name="photoUrl"
                   value={editedUser.photoUrl}
                   onChange={handleChange}
-                  className="mt-1 block w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="https://..."
+                  className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none focus:border-sky-500 focus:ring-2 focus:ring-sky-100"
                 />
-              </div>
+              </label>
             </div>
-            <div className="flex justify-end gap-4 mt-8">
+
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:justify-end">
               <button
                 onClick={handleCloseModal}
-                className="px-6 py-2 border border-slate-300 rounded-lg text-slate-700 font-medium hover:bg-slate-50 transition"
+                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSave}
                 disabled={saving}
-                className="px-6 py-2 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition disabled:opacity-50"
+                className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {saving ? "Guardando..." : "Guardar"}
+                {saving ? "Guardando..." : "Guardar cambios"}
               </button>
             </div>
-          </div>
-        </div>
-      ) : (
-        /* Pantalla del perfil */
-        <div className="max-w-2xl mx-auto">
-          {/* Tarjeta del perfil */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-            {/* Avatar y nombre */}
-            <div className="flex flex-col items-center mb-6">
-              <div className="w-24 h-24 rounded-full overflow-hidden bg-gradient-to-br from-blue-200 to-blue-100 flex items-center justify-center mb-4 shadow-md">
-                {user?.photoUrl ? (
-                  <img
-                    src={user.photoUrl}
-                    alt="Foto de perfil"
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <span className="text-3xl font-bold text-blue-600">
-                    {user?.name ? getInitials(user.name) : "?"}
-                  </span>
-                )}
-              </div>
-              <h1 className="text-2xl font-bold text-slate-900">
-                {user?.name || "Nombre de usuario"}
-              </h1>
-              <p className="text-slate-500 mt-1">
-                {user?.email || "email@ejemplo.com"}
-              </p>
-            </div>
-
-            {/* Botón Editar perfil */}
-            <div className="flex justify-center mb-6">
-              <button
-                onClick={handleEditProfile}
-                className="flex items-center gap-2 px-6 py-2 border-2 border-slate-300 rounded-full text-slate-700 font-medium hover:border-blue-500 hover:text-blue-600 transition"
-              >
-                <span>✏️</span>
-                <span>Editar perfil</span>
-              </button>
-            </div>
-          </div>
-          {/* Tarjeta de Información personal */}
-          <div className="bg-white rounded-2xl shadow-lg p-8 mb-6">
-            <h2 className="text-xl font-bold text-slate-900 mb-6">
-              Información personal
-            </h2>
-
-            <div className="space-y-6">
-              {/* Teléfono */}
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">📱</span>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Teléfono</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {user?.telefono || "No especificado"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Fecha de nacimiento */}
-              <div className="flex items-start gap-4">
-                <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                  <span className="text-lg">📅</span>
-                </div>
-                <div>
-                  <p className="text-sm text-slate-500">Fecha de nacimiento</p>
-                  <p className="text-lg font-semibold text-slate-900">
-                    {user?.birthDate
-                      ? new Date(user.birthDate).toLocaleDateString("es-ES", {
-                          year: "numeric",
-                          month: "long",
-                          day: "numeric",
-                        })
-                      : "No especificada"}
-                  </p>
-                </div>
-              </div>
-
-              {/* Dirección */}
-              {user?.address && (
-                <div className="flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0">
-                    <span className="text-lg">📍</span>
-                  </div>
-                  <div>
-                    <p className="text-sm text-slate-500">Dirección</p>
-                    <p className="text-lg font-semibold text-slate-900">
-                      {user.address}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tarjeta Explorar clubes */}
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-8">
-            <h2 className="text-xl font-bold text-white mb-2">
-              Explorar clubes
-            </h2>
-            <p className="text-blue-100 mb-6">
-              Descubre clubs deportivos en tu zona y únete a la comunidad
-            </p>
-            <button
-              onClick={handleExploreClubs}
-              className="w-full bg-white text-blue-600 font-semibold py-3 rounded-lg hover:bg-blue-50 transition shadow-md"
-            >
-              Ver clubes disponibles →
-            </button>
-          </div>
-
-          <div className="flex justify-center mt-8">
-            <button
-              onClick={logout}
-              className="flex items-center gap-2 rounded-full border border-blue-200 bg-white px-6 py-3 text-sm font-semibold text-blue-700 shadow-sm transition hover:bg-blue-50 hover:text-blue-800"
-            >
-              <span>🚪</span>
-              Cerrar sesión
-            </button>
           </div>
         </div>
       )}

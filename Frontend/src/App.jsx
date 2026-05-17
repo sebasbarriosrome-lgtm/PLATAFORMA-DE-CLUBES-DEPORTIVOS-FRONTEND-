@@ -5,6 +5,8 @@ import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
 import Clubs from "./pages/Directorio";
 import UserProfile from "./pages/UserProfile";
+import VistaClub from "./pages/VistaClub";
+import PanelClub from "./pages/PanelClub";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 function LandingPage() {
@@ -260,8 +262,9 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/clubs" element={<Clubs />} />
-        {/* EVITA PANTALLA BLANCA */}
-        <Route path="*" element={<LandingPage />} />
+
+        {/* ✅ SOLO ESTA */}
+        <Route path="/clubs/:id" element={<VistaClub />} />
 
         {/* 🔐 PROTEGIDAS */}
         <Route
@@ -274,6 +277,15 @@ function App() {
         />
 
         <Route
+          path="/panel-club"
+          element={
+            <ProtectedRoute>
+              <PanelClub />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
           path="/UserProfile"
           element={
             <ProtectedRoute>
@@ -281,6 +293,9 @@ function App() {
             </ProtectedRoute>
           }
         />
+
+        {/* EVITA PANTALLA BLANCA */}
+        <Route path="*" element={<LandingPage />} />
       </Routes>
     </BrowserRouter>
   );

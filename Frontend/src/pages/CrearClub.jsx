@@ -15,38 +15,35 @@ export default function CrearClub() {
     colorSecundario: "#22c55e",
     contacto: "",
   });
+
   const [errors, setErrors] = useState({});
   const [success, setSuccess] = useState("");
 
+  const fieldClass =
+    "w-full px-4 py-3 rounded-lg border bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition border-slate-200";
+
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((prev) => ({ ...prev, [name]: value }));
-    setErrors((prev) => ({ ...prev, [name]: "" }));
-    setSuccess("");
-  };
 
-  const validateForm = () => {
-    const newErrors = {};
-    if (!form.nombre.trim()) newErrors.nombre = "El nombre es obligatorio";
-    if (!form.ciudad.trim()) newErrors.ciudad = "La ciudad es obligatoria";
-    if (!form.descripcion.trim())
-      newErrors.descripcion = "La descripción es obligatoria";
-    if (!form.contacto.trim())
-      newErrors.contacto = "El número de contacto es obligatorio";
-    return newErrors;
+    setForm((prev) => ({
+      ...prev,
+      [name]: value,
+    }));
+
+    setErrors({});
+    setSuccess("");
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    const validation = validateForm();
-    if (Object.keys(validation).length > 0) {
-      setErrors(validation);
+    if (!form.nombre || !form.ciudad || !form.descripcion || !form.contacto) {
+      setErrors({ general: "Todos los campos obligatorios" });
       return;
     }
 
     try {
-      const clubData = {
+      await clubsService.create({
         nombre: form.nombre,
         ciudad: form.ciudad,
         descripcion: form.descripcion,
@@ -55,38 +52,22 @@ export default function CrearClub() {
         colorPrimario: form.colorPrimario,
         colorSecundario: form.colorSecundario,
         contacto: form.contacto,
-      };
+      });
 
-      console.log("Enviando al backend:", clubData);
-
-      await clubsService.create(clubData);
-
-      setSuccess(" Club creado correctamente");
-      {
-        errors.general && (
-          <div className="mb-4 bg-red-50 border border-red-200 text-red-700 p-3 rounded">
-            {errors.general}
-          </div>
-        );
-      }
+      setSuccess("✅ Club creado correctamente");
 
       setTimeout(() => {
-        navigate("/clubs");
-      }, 1000);
+        navigate("/panel-club");
+      }, 1200);
     } catch (error) {
-      console.error(error);
-      setErrors({
-        general: error.message || "Error al crear club",
-      });
+      setErrors({ general: "Error al crear club" });
     }
   };
 
-  const inputBase =
-    "w-full rounded-2xl border border-slate-300 bg-slate-50 px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all";
-
   return (
-    <div className="relative min-h-screen bg-gradient-to-br from-slate-50 via-sky-50 to-slate-100 px-4 py-10 text-slate-900">
-      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-lg shadow-slate-200/50 border border-slate-200">
+    <div className="min-h-screen w-full bg-white text-slate-900">
+      {/* BOTÓN VOLVER */}
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-md border border-slate-200">
         <button
           type="button"
           onClick={() => navigate(-1)}
@@ -94,215 +75,141 @@ export default function CrearClub() {
         >
           ← Volver
         </button>
-        <span className="font-bold">ClubZone</span>
+        <span className="text-slate-900 font-bold">ClubZone</span>
       </div>
 
-      <div className="mx-auto w-full max-w-4xl rounded-[32px] border border-slate-200 bg-white/95 p-8 shadow-2xl shadow-slate-200/40 backdrop-blur-sm sm:p-12">
-        <div className="mb-8 grid gap-6 md:grid-cols-[1.2fr_0.8fr] items-start">
-          <div>
-            <p className="text-sm uppercase tracking-[0.24em] text-blue-600 font-semibold">
-              Crear club
-            </p>
-            <h1 className="mt-3 text-4xl font-extrabold text-slate-900">
-              Crea tu club deportivo
-            </h1>
-            <p className="mt-4 max-w-2xl text-slate-600 leading-7">
-              Completa los datos principales, define tus colores y agrega los
-              enlaces para el logo y el banner.
-            </p>
+      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
+        {/* ✅ IZQUIERDA FORM */}
+        <div className="flex items-center justify-center px-6 py-16 lg:px-16">
+          <div className="w-full max-w-md">
+            <div className="mb-8">
+              <h2 className="text-3xl font-extrabold text-slate-900">
+                Crear club
+              </h2>
+              <p className="mt-2 text-slate-500">
+                Registra tu club deportivo en la plataforma
+              </p>
+            </div>
+
+            {/* ✅ MENSAJES */}
+            {errors.general && (
+              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                {errors.general}
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+                {success}
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-4">
+              <input
+                name="nombre"
+                placeholder="Nombre del club"
+                value={form.nombre}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              <input
+                name="ciudad"
+                placeholder="Ciudad"
+                value={form.ciudad}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              <input
+                name="contacto"
+                placeholder="Contacto"
+                value={form.contacto}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              <textarea
+                name="descripcion"
+                placeholder="Descripción"
+                value={form.descripcion}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              <input
+                name="urlLogo"
+                placeholder="URL logo"
+                value={form.urlLogo}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              <input
+                name="urlBanner"
+                placeholder="URL banner"
+                value={form.urlBanner}
+                onChange={handleChange}
+                className={fieldClass}
+              />
+
+              {/* 🎨 COLORES MEJORADOS */}
+              <div className="flex gap-4">
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    name="colorPrimario"
+                    value={form.colorPrimario}
+                    onChange={handleChange}
+                    className="w-12 h-10 rounded-lg border cursor-pointer"
+                  />
+                  <span className="text-sm">{form.colorPrimario}</span>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="color"
+                    name="colorSecundario"
+                    value={form.colorSecundario}
+                    onChange={handleChange}
+                    className="w-12 h-10 rounded-lg border cursor-pointer"
+                  />
+                  <span className="text-sm">{form.colorSecundario}</span>
+                </div>
+              </div>
+
+              <button
+                type="submit"
+                className="mt-2 px-6 py-3 font-semibold text-white rounded-lg bg-blue-600 hover:bg-blue-700 transition"
+              >
+                Crear club
+              </button>
+            </form>
           </div>
         </div>
 
-        {success && (
-          <div className="mb-6 rounded-2xl border border-green-200 bg-green-50 px-5 py-4 text-sm text-green-700">
-            {success}
+        {/* ✅ DERECHA DECORATIVO */}
+        <div className="relative hidden lg:flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-sky-100 to-blue-200">
+          <div className="absolute inset-0">
+            <div className="absolute -top-10 -left-10 w-72 h-24 bg-blue-500/80 rotate-[-25deg] rounded-md animate-float" />
+            <div className="absolute top-24 left-40 w-56 h-20 bg-white rotate-[-25deg] rounded-md shadow-lg animate-drift" />
+            <div className="absolute top-10 right-10 w-80 h-28 bg-blue-600 rotate-[-25deg] rounded-md animate-float" />
+            <div className="absolute top-1/2 -left-16 w-96 h-24 bg-sky-300 rotate-[-25deg] rounded-md animate-drift" />
+            <div className="absolute bottom-20 left-20 w-72 h-24 bg-blue-700 rotate-[-25deg] rounded-md animate-float" />
+            <div className="absolute bottom-10 right-0 w-80 h-28 bg-blue-400 rotate-[-25deg] rounded-md animate-drift" />
+            <div className="absolute bottom-32 right-32 w-40 h-16 bg-white rotate-[-25deg] rounded-md shadow-md animate-float" />
+            <div className="absolute top-1/4 right-1/3 w-64 h-20 bg-blue-300 rotate-[-25deg] rounded-md animate-drift" />
+            <div className="absolute bottom-1/4 left-1/2 w-48 h-16 bg-sky-200 rotate-[-25deg] rounded-md animate-float" />
+            <div className="absolute top-2/3 right-1/4 w-56 h-18 bg-blue-500 rotate-[-25deg] rounded-md animate-drift" />
           </div>
-        )}
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-blue-600 text-white">
-                🏟️
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Datos del club
-                </h2>
-                <p className="text-sm text-slate-600">
-                  Información obligatoria para crear tu club.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Nombre
-                </label>
-                <input
-                  name="nombre"
-                  value={form.nombre}
-                  onChange={handleChange}
-                  placeholder="Nombre del club"
-                  className={inputBase}
-                />
-                {errors.nombre && (
-                  <p className="mt-2 text-sm text-red-600">{errors.nombre}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Ciudad
-                </label>
-                <input
-                  name="ciudad"
-                  value={form.ciudad}
-                  onChange={handleChange}
-                  placeholder="Ciudad donde opera"
-                  className={inputBase}
-                />
-                {errors.ciudad && (
-                  <p className="mt-2 text-sm text-red-600">{errors.ciudad}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Número de contacto
-                </label>
-                <input
-                  name="contacto"
-                  type="tel"
-                  value={form.contacto}
-                  onChange={handleChange}
-                  placeholder="Teléfono o WhatsApp"
-                  className={inputBase}
-                />
-                {errors.contacto && (
-                  <p className="mt-2 text-sm text-red-600">{errors.contacto}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  Descripción
-                </label>
-                <textarea
-                  name="descripcion"
-                  value={form.descripcion}
-                  onChange={handleChange}
-                  placeholder="Describe tu club, visión o equipo"
-                  rows={5}
-                  className={`${inputBase} min-h-[120px] resize-none`}
-                />
-                {errors.descripcion && (
-                  <p className="mt-2 text-sm text-red-600">
-                    {errors.descripcion}
-                  </p>
-                )}
-              </div>
-            </div>
-          </section>
-
-          <section className="rounded-3xl border border-slate-200 bg-slate-50 p-6 shadow-sm">
-            <div className="mb-6 flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-green-600 text-white">
-                🎨
-              </div>
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Branding
-                </h2>
-                <p className="text-sm text-slate-600">
-                  Define tus enlaces y colores principales.
-                </p>
-              </div>
-            </div>
-
-            <div className="grid gap-4">
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  URL de logo (opcional)
-                </label>
-                <input
-                  name="urlLogo"
-                  type="url"
-                  value={form.urlLogo}
-                  onChange={handleChange}
-                  placeholder="https://"
-                  className={inputBase}
-                />
-              </div>
-
-              <div>
-                <label className="mb-2 block text-sm font-medium text-slate-700">
-                  URL de banner (opcional)
-                </label>
-                <input
-                  name="urlBanner"
-                  type="url"
-                  value={form.urlBanner}
-                  onChange={handleChange}
-                  placeholder="https://"
-                  className={inputBase}
-                />
-              </div>
-
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Color primario
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      name="colorPrimario"
-                      type="color"
-                      value={form.colorPrimario}
-                      onChange={handleChange}
-                      className="h-12 w-16 rounded-2xl border border-slate-300 bg-white p-1"
-                    />
-                    <input
-                      type="text"
-                      value={form.colorPrimario}
-                      readOnly
-                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-700"
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-slate-700">
-                    Color secundario
-                  </label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      name="colorSecundario"
-                      type="color"
-                      value={form.colorSecundario}
-                      onChange={handleChange}
-                      className="h-12 w-16 rounded-2xl border border-slate-300 bg-white p-1"
-                    />
-                    <input
-                      type="text"
-                      value={form.colorSecundario}
-                      readOnly
-                      className="w-full rounded-2xl border border-slate-300 bg-white px-4 py-3 text-slate-700"
-                    />
-                  </div>
-                </div>
-              </div>
-            </div>
-          </section>
-
-          <button
-            type="submit"
-            className="w-full rounded-3xl bg-gradient-to-r from-blue-600 to-green-600 px-6 py-4 text-lg font-semibold text-white shadow-xl shadow-blue-200/40 transition hover:brightness-110"
-          >
-            Registrar club
-          </button>
-        </form>
+          <div className="relative z-10 flex items-center gap-2 px-6 py-4 rounded-xl bg-white/90 shadow-2xl">
+            <span className="text-5xl font-extrabold text-slate-900">Club</span>
+            <span className="text-5xl font-extrabold text-white bg-blue-600 px-4 py-1 rounded-md">
+              Zone
+            </span>
+          </div>
+        </div>
       </div>
     </div>
   );
