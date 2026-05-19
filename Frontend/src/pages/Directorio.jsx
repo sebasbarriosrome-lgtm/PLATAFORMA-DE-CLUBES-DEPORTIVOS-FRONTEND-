@@ -176,7 +176,7 @@ export default function Directorio() {
                       📍 {club.ciudad}
                     </div>
                     <Link
-                      to={`/clubs/${club.id}`}
+                      Link to={`/clubs/${club.slug}`}
                       className="mt-4 block w-full rounded-xl bg-blue-600 py-2 text-center text-white hover:bg-blue-700 transition"
                     >
                       Ver club

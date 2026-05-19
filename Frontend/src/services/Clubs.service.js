@@ -1,35 +1,27 @@
 import { apiRequest } from "./api";
 
 export const clubsService = {
-  getAll: () => {
-    return apiRequest("/clubs", {
-      method: "GET",
-    });
-  },
+  getAll: () => apiRequest("/clubs", { method: "GET" }),
 
-  getById: (id) => {
-    return apiRequest(`/clubs/${id}`, {
+  getBySlug: (slug) =>
+    apiRequest(`/clubs/slug/${slug}`, {
       method: "GET",
-    });
-  },
+    }),
 
-  create: (club) => {
-    return apiRequest("/clubs", {
+  create: (club) =>
+    apiRequest("/clubs", {
       method: "POST",
       body: JSON.stringify(club),
-    });
-  },
+    }),
 
-  update: (id, club) => {
-    return apiRequest(`/clubs/${id}`, {
+  update: (id, club) =>
+    apiRequest(`/clubs/${id}`, {
       method: "PUT",
       body: JSON.stringify(club),
-    });
-  },
+    }),
 
-  remove: (id) => {
-    return apiRequest(`/clubs/${id}`, {
+  remove: (id) =>
+    apiRequest(`/clubs/${id}`, {
       method: "DELETE",
-    });
-  },
+    }),
 };

@@ -263,8 +263,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/clubs" element={<Clubs />} />
 
-        {/* ✅ SOLO ESTA */}
-        <Route path="/clubs/:id" element={<VistaClub />} />
+        <Route path="/clubs/:slug" element={<VistaClub />} />
 
         {/* 🔐 PROTEGIDAS */}
         <Route

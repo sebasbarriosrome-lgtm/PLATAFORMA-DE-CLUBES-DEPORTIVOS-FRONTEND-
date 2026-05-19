@@ -132,22 +132,17 @@ export default function UserProfile() {
   // ✅ NUEVO BOTÓN
   const handleMyClub = async () => {
     try {
-      // ✅ CONSULTA SI EL USUARIO YA TIENE CLUB
       const data = await apiRequest("/clubs/panel-club");
 
-      // ✅ SI EXISTE CLUB
-      if (data && data.id) {
-        navigate("/panel-club");
-        return;
-      }
+      console.log("DATA:", data);
 
-      // ✅ SI NO EXISTE
-      navigate("/crear-club");
+      if (data && data.clubId) {
+        navigate("/panel-club");
+      } else {
+        navigate("/crear-club");
+      }
     } catch (error) {
       console.error(error);
-
-      // ✅ SI EL BACKEND RESPONDE ERROR
-      // SIGNIFICA QUE NO TIENE CLUB
       navigate("/crear-club");
     }
   };

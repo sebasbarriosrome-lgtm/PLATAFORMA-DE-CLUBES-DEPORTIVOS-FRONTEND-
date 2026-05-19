@@ -3,12 +3,12 @@ import { apiRequest } from "../services/api";
 import { Link, useParams } from "react-router-dom";
 
 export default function VistaClub() {
-  const { id } = useParams();
+  const { slug } = useParams();
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // ✅ SOLICITUD
+  // SOLICITUD
   const [showModal, setShowModal] = useState(false);
   const [rol, setRol] = useState("");
   const [success, setSuccess] = useState("");
@@ -27,7 +27,7 @@ export default function VistaClub() {
   useEffect(() => {
     const fetchClub = async () => {
       try {
-        const data = await apiRequest(`/clubs/${id}`);
+        const data = await apiRequest(`/clubs/slug/${slug}`);
 
         setClub({
           id: data.id,
@@ -45,8 +45,8 @@ export default function VistaClub() {
       }
     };
 
-    fetchClub();
-  }, [id]);
+    if (slug) fetchClub();
+  }, [slug]);
 
   const handleSolicitudChange = (e) => {
     setFormSolicitud({
@@ -56,7 +56,6 @@ export default function VistaClub() {
   };
 
   const handleEnviarSolicitud = async () => {
-    // ✅ VALIDACIÓN
     if (!rol || !formSolicitud.mensaje) {
       setError("Todos los campos obligatorios");
       return;
@@ -102,7 +101,7 @@ export default function VistaClub() {
         body: JSON.stringify(payload),
       });
 
-      setSuccess("✅ Solicitud enviada");
+      setSuccess("Solicitud enviada");
 
       setTimeout(() => {
         setShowModal(false);
@@ -110,12 +109,9 @@ export default function VistaClub() {
       }, 2000);
     } catch (err) {
       console.error(err);
+      setError(err.message || "Error al enviar solicitud");
 
-      setError(`❌ ${err.message}`);
-
-      setTimeout(() => {
-        setError("");
-      }, 3000);
+      setTimeout(() => setError(""), 3000);
     } finally {
       setLoadingRequest(false);
     }
@@ -130,9 +126,11 @@ export default function VistaClub() {
         .toUpperCase()
     : "CD";
 
+  if (loading) return <div className="p-6">Cargando...</div>;
+  if (!club) return <div className="p-6">Club no encontrado</div>;
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
-      {/* HEADER */}
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90">
         <div className="max-w-7xl mx-auto px-4 py-4">
           <Link to="/" className="font-bold text-blue-600">
@@ -140,8 +138,8 @@ export default function VistaClub() {
           </Link>
         </div>
       </header>
+
       <main className="space-y-10 pb-16">
-        {/* ✅ BANNER */}
         <section className="px-4 pt-6">
           {club.banner ? (
             <img
@@ -155,7 +153,6 @@ export default function VistaClub() {
           )}
         </section>
 
-        {/* ✅ INFO */}
         <section className="max-w-7xl mx-auto px-4">
           <div className="bg-white p-6 rounded-2xl shadow">
             <div className="flex items-center gap-4">
@@ -187,7 +184,6 @@ export default function VistaClub() {
               </div>
             </div>
 
-            {/* ✅ BOTÓN */}
             <button
               onClick={() => setShowModal(true)}
               className="mt-5 bg-blue-600 text-white px-4 py-2 rounded-lg"
@@ -196,151 +192,76 @@ export default function VistaClub() {
             </button>
           </div>
         </section>
-
-        {/* ✅ CATEGORÍAS */}
-        <section className="max-w-7xl mx-auto px-4">
-          <div className="bg-white p-6 rounded-2xl shadow">
-            <h2 className="font-semibold text-lg">Categorías</h2>
-            <p className="text-slate-500 mt-3">No hay categorías</p>
-          </div>
-        </section>
-
-        {/* ✅ ENTRENADORES */}
-        <section className="max-w-7xl mx-auto px-4">
-          <div className="bg-white p-6 rounded-2xl shadow">
-            <h2 className="font-semibold text-lg">Entrenadores</h2>
-            <p className="text-slate-500 mt-3">No hay entrenadores</p>
-          </div>
-        </section>
-
-        {/* ✅ HORARIOS */}
-        <section className="max-w-7xl mx-auto px-4">
-          <div className="bg-white p-6 rounded-2xl shadow">
-            <h2 className="font-semibold text-lg">Horarios</h2>
-            <p className="text-slate-500 mt-3">No hay horarios</p>
-          </div>
-        </section>
       </main>
-      {/* ✅ MODAL */}
+
       {showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white p-8 rounded-2xl w-full max-w-md shadow-2xl">
             <div className="mb-6">
-              <h2 className="text-xl font-bold text-slate-900">
-                Solicitar ingreso
-              </h2>
+              <h2 className="text-xl font-bold">Solicitar ingreso</h2>
+
               {error && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
+                <div className="p-3 bg-red-50 text-red-700 rounded-lg text-sm">
                   {error}
                 </div>
               )}
+
               <p className="text-sm text-slate-500 mt-1">
-                Completa la información para enviar tu solicitud
+                Completa la información
               </p>
             </div>
 
             {success && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
+              <div className="mb-4 p-3 bg-green-50 text-green-700 rounded-lg text-sm">
                 {success}
               </div>
             )}
 
-            {/* CAMPOS */}
             <div className="space-y-4">
-              {/* SELECT */}
               <select
                 value={rol}
                 onChange={(e) => setRol(e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 rounded-lg border"
               >
                 <option value="">Selecciona rol</option>
                 <option value="deportista">Deportista</option>
                 <option value="entrenador">Entrenador</option>
               </select>
 
-              {/* MENSAJE */}
               <textarea
                 name="mensaje"
                 placeholder="Mensaje"
                 onChange={handleSolicitudChange}
-                className="w-full px-4 py-3 rounded-lg border bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-4 py-3 rounded-lg border"
               />
 
-              {/* DEPORTISTA */}
               {rol === "deportista" && (
                 <>
-                  <input
-                    name="edad"
-                    placeholder="Edad"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
-
-                  <input
-                    name="peso"
-                    placeholder="Peso"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
-
-                  <input
-                    name="estatura"
-                    placeholder="Estatura"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
-
-                  <textarea
-                    name="experiencia"
-                    placeholder="Experiencia"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
-
-                  <input
-                    name="especialidad"
-                    placeholder="Especialidad"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
+                  <input name="edad" placeholder="Edad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <input name="peso" placeholder="Peso" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <input name="estatura" placeholder="Estatura" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <textarea name="experiencia" placeholder="Experiencia" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <input name="especialidad" placeholder="Especialidad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
                 </>
               )}
 
-              {/* ENTRENADOR */}
               {rol === "entrenador" && (
                 <>
-                  <textarea
-                    name="experiencia"
-                    placeholder="Experiencia"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
-
-                  <input
-                    name="especialidad"
-                    placeholder="Especialidad"
-                    onChange={handleSolicitudChange}
-                    className="w-full px-4 py-3 rounded-lg border focus:ring-2 focus:ring-blue-500"
-                  />
+                  <textarea name="experiencia" placeholder="Experiencia" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <input name="especialidad" placeholder="Especialidad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
                 </>
               )}
             </div>
 
-            {/* BOTONES */}
             <div className="mt-6 flex justify-end gap-3">
-              <button
-                onClick={() => setShowModal(false)}
-                className="px-4 py-2 text-slate-600 hover:text-slate-900"
-              >
-                Cancelar
-              </button>
+              <button onClick={() => setShowModal(false)}>Cancelar</button>
 
               <button
                 onClick={handleEnviarSolicitud}
                 disabled={loadingRequest}
-                className="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50 transition"
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg"
               >
-                {loadingRequest ? "Enviando..." : "Enviar solicitud"}
+                {loadingRequest ? "Enviando..." : "Enviar"}
               </button>
             </div>
           </div>
