@@ -12,7 +12,7 @@ const sections = [
   { name: "Rendimiento", icon: "📈" },
   { name: "Analítica", icon: "📊" },
   { name: "Invitar", icon: "✉️" },
-  { name: "Reclutar", icon: "🧲" },
+  { name: "Solicitudes", icon: "📥" },
 ];
 
 export default function PanelClub() {
@@ -120,7 +120,9 @@ export default function PanelClub() {
         body: JSON.stringify({ accion }),
       });
 
-      setSolicitudes((prev) => prev.filter((s) => s.id !== id));
+      setSolicitudes((prev) =>
+        prev.map((s) => (s.id === id ? { ...s, estado: accion } : s)),
+      );
 
       setSuccessMessage(
         accion === "aceptado"
