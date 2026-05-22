@@ -17,7 +17,6 @@ export default function VistaClub() {
 
   const [formSolicitud, setFormSolicitud] = useState({
     mensaje: "",
-    edad: "",
     peso: "",
     estatura: "",
     experiencia: "",
@@ -62,14 +61,8 @@ export default function VistaClub() {
     }
 
     if (rol === "deportista") {
-      if (
-        !formSolicitud.edad ||
-        !formSolicitud.peso ||
-        !formSolicitud.estatura ||
-        !formSolicitud.experiencia ||
-        !formSolicitud.especialidad
-      ) {
-        setError("Todos los campos obligatorios");
+      if (!formSolicitud.peso || !formSolicitud.estatura) {
+        setError("Peso y estatura son obligatorios");
         return;
       }
     }
@@ -89,9 +82,13 @@ export default function VistaClub() {
         clubId: club.id,
         rol,
         mensaje: formSolicitud.mensaje,
-        edad: formSolicitud.edad || null,
-        peso: formSolicitud.peso || null,
-        estatura: formSolicitud.estatura || null,
+
+        // ✅ IMPORTANTE
+        peso: formSolicitud.peso ? Number(formSolicitud.peso) : null,
+        estatura: formSolicitud.estatura
+          ? Number(formSolicitud.estatura)
+          : null,
+
         experiencia: formSolicitud.experiencia,
         especialidad: formSolicitud.especialidad,
       };
@@ -237,18 +234,54 @@ export default function VistaClub() {
 
               {rol === "deportista" && (
                 <>
-                  <input name="edad" placeholder="Edad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
-                  <input name="peso" placeholder="Peso" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
-                  <input name="estatura" placeholder="Estatura" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
-                  <textarea name="experiencia" placeholder="Experiencia" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
-                  <input name="especialidad" placeholder="Especialidad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <select
+                    name="peso"
+                    value={formSolicitud.peso}
+                    onChange={handleSolicitudChange}
+                    className="w-full px-4 py-3 rounded-lg border"
+                  >
+                    <option value="">Selecciona peso</option>
+                    {[40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100].map(
+                      (p) => (
+                        <option key={p} value={p}>
+                          {p} kg
+                        </option>
+                      ),
+                    )}
+                  </select>
+
+                  <select
+                    name="estatura"
+                    value={formSolicitud.estatura}
+                    onChange={handleSolicitudChange}
+                    className="w-full px-4 py-3 rounded-lg border"
+                  >
+                    <option value="">Selecciona estatura</option>
+                    {[
+                      140, 150, 160, 165, 170, 175, 180, 185, 190, 195, 200,
+                    ].map((e) => (
+                      <option key={e} value={e}>
+                        {e} cm
+                      </option>
+                    ))}
+                  </select>
                 </>
               )}
 
               {rol === "entrenador" && (
                 <>
-                  <textarea name="experiencia" placeholder="Experiencia" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
-                  <input name="especialidad" placeholder="Especialidad" onChange={handleSolicitudChange} className="w-full border p-2 rounded" />
+                  <textarea
+                    name="experiencia"
+                    placeholder="Experiencia"
+                    onChange={handleSolicitudChange}
+                    className="w-full border p-2 rounded"
+                  />
+                  <input
+                    name="especialidad"
+                    placeholder="Especialidad"
+                    onChange={handleSolicitudChange}
+                    className="w-full border p-2 rounded"
+                  />
                 </>
               )}
             </div>

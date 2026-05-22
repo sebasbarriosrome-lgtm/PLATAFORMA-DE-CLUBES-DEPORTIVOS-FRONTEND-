@@ -1,5 +1,8 @@
 import { useState, useEffect } from "react";
+import { clubsService } from "../services/Clubs.service";
 import { apiRequest } from "../services/api";
+import SolicitudEntrenadorCard from "../components/SolicitudEntrenadorCard";
+import SolicitudDeportistaCard from "../components/SolicitudDeportistaCard";
 
 const sections = [
   { name: "Información del club", icon: "🏠" },
@@ -63,8 +66,11 @@ export default function PanelClub() {
 
     const fetchSolicitudes = async () => {
       try {
-        const data = await apiRequest("/clubs/solicitudes");
-        setSolicitudes(data);
+        const entrenadores =
+          await clubsService.getSolicitudesPorRol("entrenador");
+        const deportistas =
+          await clubsService.getSolicitudesPorRol("deportista");
+        setSolicitudes([...entrenadores, ...deportistas]);
       } catch (err) {
         console.error("Error cargando solicitudes", err);
       }
@@ -115,10 +121,7 @@ export default function PanelClub() {
 
   const handleSolicitud = async (id, accion) => {
     try {
-      await apiRequest(`/clubs/solicitud/${id}`, {
-        method: "PUT",
-        body: JSON.stringify({ accion }),
-      });
+      await clubsService.resolverSolicitud(id, accion);
 
       setSolicitudes((prev) =>
         prev.map((s) => (s.id === id ? { ...s, estado: accion } : s)),
@@ -228,68 +231,23 @@ export default function PanelClub() {
               {activeSection === "Entrenadores" && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-800">
-                    Solicitudes de entrenadores
+                    Gestión de entrenadores
                   </h3>
 
-                  {solicitudesEntrenadores.length > 0 ? (
-                    solicitudesEntrenadores.map((s) => (
-                      <div
-                        key={s.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex justify-between items-center mb-3">
-                          <p className="font-semibold">{s.nombre}</p>
+                  <p className="text-slate-500">
+                    Esta sección será usada para administrar los entrenadores
+                    del club. Las solicitudes se gestionan exclusivamente en la
+                    pestaña "Solicitudes".
+                  </p>
 
-                          <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-600">
-                            {s.estado}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-slate-500 mb-3">
-                          {s.mensaje}
-                        </p>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">
-                              Especialidad
-                            </p>
-                            <p className="font-medium">
-                              {s.especialidad || "-"}
-                            </p>
-                          </div>
-
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">
-                              Experiencia
-                            </p>
-                            <p className="font-medium">
-                              {s.experiencia || "-"}
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* ✅ BOTONES */}
-                        <div className="flex justify-end gap-2 mt-4">
-                          <button
-                            onClick={() => handleSolicitud(s.id, "rechazado")}
-                            className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200"
-                          >
-                            Rechazar
-                          </button>
-
-                          <button
-                            onClick={() => handleSolicitud(s.id, "aceptado")}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
-                          >
-                            Aceptar
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-slate-500">No hay solicitudes</p>
-                  )}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
+                    <p className="font-medium">Próximamente:</p>
+                    <ul className="mt-3 list-disc pl-5 space-y-2 text-sm">
+                      <li>Listar entrenadores registrados</li>
+                      <li>Editar información del entrenador</li>
+                      <li>Activar / desactivar entrenadores</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
@@ -297,83 +255,75 @@ export default function PanelClub() {
               {activeSection === "Deportistas" && (
                 <div className="space-y-4">
                   <h3 className="text-lg font-semibold text-slate-800">
-                    Solicitudes de deportistas
+                    Gestión de deportistas
                   </h3>
 
-                  {solicitudesDeportistas.length > 0 ? (
-                    solicitudesDeportistas.map((s) => (
-                      <div
-                        key={s.id}
-                        className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
-                      >
-                        <div className="flex justify-between items-center mb-3">
-                          <p className="font-semibold">{s.nombre}</p>
+                  <p className="text-slate-500">
+                    Esta sección será usada para administrar los deportistas del
+                    club. Las solicitudes se gestionan exclusivamente en la
+                    pestaña "Solicitudes".
+                  </p>
 
-                          <span className="text-xs px-3 py-1 rounded-full bg-amber-100 text-amber-600">
-                            {s.estado}
-                          </span>
-                        </div>
-
-                        <p className="text-sm text-slate-500 mb-3">
-                          {s.mensaje}
-                        </p>
-
-                        <div className="grid grid-cols-2 gap-3 text-sm">
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">Edad</p>
-                            <p className="font-medium">{s.edad || "-"}</p>
-                          </div>
-
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">Peso</p>
-                            <p className="font-medium">{s.peso || "-"}</p>
-                          </div>
-
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">Estatura</p>
-                            <p className="font-medium">{s.estatura || "-"}</p>
-                          </div>
-
-                          <div className="bg-slate-50 p-3 rounded-lg">
-                            <p className="text-xs text-slate-400">
-                              Especialidad
-                            </p>
-                            <p className="font-medium">
-                              {s.especialidad || "-"}
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="mt-3 bg-slate-50 p-3 rounded-lg">
-                          <p className="text-xs text-slate-400">Experiencia</p>
-                          <p className="text-sm">{s.experiencia || "-"}</p>
-                        </div>
-
-                        {/* ✅ BOTONES */}
-                        <div className="flex justify-end gap-2 mt-4">
-                          <button
-                            onClick={() => handleSolicitud(s.id, "rechazado")}
-                            className="px-3 py-1 text-sm bg-red-100 text-red-600 rounded hover:bg-red-200"
-                          >
-                            Rechazar
-                          </button>
-
-                          <button
-                            onClick={() => handleSolicitud(s.id, "aceptado")}
-                            className="px-3 py-1 text-sm bg-green-100 text-green-600 rounded hover:bg-green-200"
-                          >
-                            Aceptar
-                          </button>
-                        </div>
-                      </div>
-                    ))
-                  ) : (
-                    <p className="text-slate-500">No hay solicitudes</p>
-                  )}
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
+                    <p className="font-medium">Próximamente:</p>
+                    <ul className="mt-3 list-disc pl-5 space-y-2 text-sm">
+                      <li>Listar deportistas registrados</li>
+                      <li>Ver estadísticas y progreso</li>
+                      <li>Asignar entrenamientos</li>
+                    </ul>
+                  </div>
                 </div>
               )}
 
-              <h2 className="text-xl font-bold mb-4">{activeSection}</h2>
+              {activeSection === "Solicitudes" && (
+                <div className="space-y-8">
+                  <h2 className="text-xl font-bold mb-4">Solicitudes</h2>
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">
+                      Solicitudes de entrenadores
+                    </h3>
+
+                    {solicitudesEntrenadores.length > 0 ? (
+                      <div className="space-y-4">
+                        {solicitudesEntrenadores.map((s) => (
+                          <SolicitudEntrenadorCard
+                            key={s.id}
+                            s={s}
+                            onAction={handleSolicitud}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500">
+                        No hay solicitudes de entrenadores
+                      </p>
+                    )}
+                  </div>
+
+                  <div>
+                    <h3 className="text-lg font-semibold mb-4">
+                      Solicitudes de deportistas
+                    </h3>
+
+                    {solicitudesDeportistas.length > 0 ? (
+                      <div className="space-y-4">
+                        {solicitudesDeportistas.map((s) => (
+                          <SolicitudDeportistaCard
+                            key={s.id}
+                            s={s}
+                            onAction={handleSolicitud}
+                          />
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-slate-500">
+                        No hay solicitudes de deportistas
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {activeSection === "Personalización" && (
                 <div className="space-y-4">
@@ -457,7 +407,7 @@ export default function PanelClub() {
                 activeSection !== "Entrenadores" &&
                 activeSection !== "Deportistas" &&
                 activeSection !== "Invitar" &&
-                activeSection !== "Reclutar" && (
+                activeSection !== "Solicitudes" && (
                   <p className="text-slate-500">
                     Aquí se mostrará la información de esta sección cuando
                     conectes backend.
