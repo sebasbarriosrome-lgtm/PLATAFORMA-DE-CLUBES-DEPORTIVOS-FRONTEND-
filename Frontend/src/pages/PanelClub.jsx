@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { clubsService } from "../services/Clubs.service";
 import { apiRequest } from "../services/api";
 import SolicitudEntrenadorCard from "../components/SolicitudEntrenadorCard";
@@ -20,7 +21,7 @@ const sections = [
 
 export default function PanelClub() {
   const [activeSection, setActiveSection] = useState("Información del club");
-
+  const navigate = useNavigate();
   const [successMessage, setSuccessMessage] = useState("");
 
   const [panelData, setPanelData] = useState(null);
@@ -152,6 +153,28 @@ export default function PanelClub() {
             {successMessage}
           </div>
         )}
+
+        {/* REGRESAR (fuera del card) */}
+        <div className="mb-4">
+          <button
+            onClick={() => navigate("/UserProfile")}
+            className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:shadow-md transition-colors hover:bg-blue-50"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-blue-600"
+              viewBox="0 0 20 20"
+              fill="currentColor"
+            >
+              <path
+                fillRule="evenodd"
+                d="M7.707 14.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L4.414 9H18a1 1 0 110 2H4.414l3.293 3.293a1 1 0 010 1.414z"
+                clipRule="evenodd"
+              />
+            </svg>
+            <span className="text-slate-800">Volver al perfil</span>
+          </button>
+        </div>
 
         {/* HEADER */}
         <div className="mb-8 rounded-2xl bg-white p-6 shadow">

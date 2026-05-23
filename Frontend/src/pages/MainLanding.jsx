@@ -1,6 +1,34 @@
-﻿import { Link } from "react-router-dom";
+﻿import { useState, useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { apiRequest } from "../services/api";
 
 function LandingPage() {
+  const [user, setUser] = useState(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (!token) return;
+
+    const fetchProfile = async () => {
+      try {
+        const data = await apiRequest("/usuarios/perfil");
+        setUser(data);
+      } catch (err) {
+        console.error("Error obteniendo perfil:", err);
+        localStorage.removeItem("token");
+        setUser(null);
+      }
+    };
+
+    fetchProfile();
+  }, []);
+
+  const logout = () => {
+    localStorage.clear();
+    setUser(null);
+    navigate("/login");
+  };
   return (
     <div className="relative min-h-screen bg-white text-slate-900">
       <div
@@ -28,25 +56,61 @@ function LandingPage() {
             <a href="#features" className="hover:text-slate-900 transition">
               Funciones
             </a>
-            <a href="#testimonials" className="hover:text-slate-900 transition">
-              Próximamente
-            </a>
 
-            <Link
-              to="/register"
-              state={{ from: "landing" }}
-              className="hover:text-slate-900 transition"
-            >
-              Registrarse
-            </Link>
+            {user ? (
+              <>
+                <button
+                  onClick={() => navigate("/UserProfile")}
+                  className="flex items-center gap-3 hover:text-slate-900 transition"
+                >
+                  <div className="h-8 w-8 overflow-hidden rounded-full bg-blue-100 flex items-center justify-center text-sm font-bold text-blue-700">
+                    {user.photoUrl ? (
+                      <img
+                        src={user.photoUrl}
+                        alt="avatar"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      (user.name || "?")
+                        .split(" ")
+                        .map((n) => n[0])
+                        .join("")
+                        .slice(0, 2)
+                        .toUpperCase()
+                    )}
+                  </div>
+                  <div className="text-left leading-tight">
+                    <div className="text-sm font-medium">{user.name}</div>
+                    <div className="text-xs text-slate-500">{user.email}</div>
+                  </div>
+                </button>
 
-            <Link
-              to="/login"
-              state={{ from: "landing" }}
-              className="hover:text-slate-900 transition"
-            >
-              Iniciar sesión
-            </Link>
+                <button
+                  onClick={logout}
+                  className="ml-2 rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-700 hover:bg-slate-100 transition"
+                >
+                  Cerrar sesión
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  to="/register"
+                  state={{ from: "landing" }}
+                  className="hover:text-slate-900 transition"
+                >
+                  Registrarse
+                </Link>
+
+                <Link
+                  to="/login"
+                  state={{ from: "landing" }}
+                  className="hover:text-slate-900 transition"
+                >
+                  Iniciar sesión
+                </Link>
+              </>
+            )}
 
             <Link
               to="/crear-club"
@@ -77,12 +141,14 @@ function LandingPage() {
             </h1>
 
             <div className="mt-6 flex flex-wrap justify-center gap-4">
-              <a
-                href="/register"
-                className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200/40 transition hover:from-blue-700 hover:to-blue-800"
-              >
-                Comenzar gratis
-              </a>
+              {!user && (
+                <a
+                  href="/register"
+                  className="rounded-xl bg-gradient-to-r from-blue-600 to-blue-700 px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-blue-200/40 transition hover:from-blue-700 hover:to-blue-800"
+                >
+                  Comenzar gratis
+                </a>
+              )}
 
               <a
                 href="/clubs"

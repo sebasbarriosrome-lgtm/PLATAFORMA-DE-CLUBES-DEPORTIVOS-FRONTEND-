@@ -1,5 +1,6 @@
 import "./App.css";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
+import { useState, useEffect } from "react";
 import Login from "./pages/Login";
 import Register from "./pages/Register";
 import CrearClub from "./pages/CrearClub";
@@ -10,11 +11,31 @@ import PanelClub from "./pages/PanelClub";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/MainLanding";
 
+function PageTransition({ children }) {
+  const [mounted, setMounted] = useState(false);
 
-function App() {
+  useEffect(() => {
+    const frame = window.requestAnimationFrame(() => setMounted(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, []);
+
   return (
-    <BrowserRouter>
-      <Routes>
+    <div
+      className={`min-h-screen transition-all duration-500 ease-out ${
+        mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+      }`}
+    >
+      {children}
+    </div>
+  );
+}
+
+function AnimatedRoutes() {
+  const location = useLocation();
+
+  return (
+    <PageTransition key={location.pathname}>
+      <Routes location={location}>
         {/* 🔓 PUBLICAS */}
         <Route path="/" element={<LandingPage />} />
         <Route path="/login" element={<Login />} />
@@ -54,6 +75,14 @@ function App() {
         {/* EVITA PANTALLA BLANCA */}
         <Route path="*" element={<LandingPage />} />
       </Routes>
+    </PageTransition>
+  );
+}
+
+function App() {
+  return (
+    <BrowserRouter>
+      <AnimatedRoutes />
     </BrowserRouter>
   );
 }

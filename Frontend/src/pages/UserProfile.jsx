@@ -166,6 +166,28 @@ export default function UserProfile() {
 
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4">
+      {/* Botón regresar (diseño igual al ejemplo) */}
+      <div className="absolute left-4 top-4 z-50">
+        <button
+          type="button"
+          onClick={() => navigate("/")}
+          className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-blue-600 shadow-md border border-slate-200 hover:shadow-lg transition"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
+            <path
+              fillRule="evenodd"
+              d="M7.707 14.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L4.414 9H18a1 1 0 110 2H4.414l3.293 3.293a1 1 0 010 1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+          <span>Volver</span>
+        </button>
+      </div>
       <div className="max-w-3xl mx-auto space-y-6">
         <div className="bg-white rounded-[32px] shadow-[0_35px_80px_rgba(15,23,42,0.08)] p-8">
           <div className="flex flex-col items-center gap-4">
