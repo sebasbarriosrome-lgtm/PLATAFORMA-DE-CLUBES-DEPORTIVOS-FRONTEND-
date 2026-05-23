@@ -124,9 +124,11 @@ export default function PanelClub() {
     try {
       await clubsService.resolverSolicitud(id, accion);
 
-      setSolicitudes((prev) =>
-        prev.map((s) => (s.id === id ? { ...s, estado: accion } : s)),
-      );
+      // ✅ RECARGAR todas las solicitudes desde el backend
+      const entrenadores =
+        await clubsService.getSolicitudesPorRol("entrenador");
+      const deportistas = await clubsService.getSolicitudesPorRol("deportista");
+      setSolicitudes([...entrenadores, ...deportistas]);
 
       setSuccessMessage(
         accion === "aceptado"
