@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { apiRequest } from "../services/api";
 import { Link, useParams } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 export default function VistaClub() {
   const { slug } = useParams();
+  const navigate = useNavigate();
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -132,9 +134,26 @@ export default function VistaClub() {
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
+      {/* Botón volver */}
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-md border border-slate-200">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          className="font-semibold text-blue-600 hover:text-blue-700"
+        >
+          ← Volver
+        </button>
+        <span className="text-slate-900 font-bold">ClubZone</span>
+      </div>
       <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/90">
         <div className="max-w-7xl mx-auto px-4 py-4">
-          <Link to="/" className="font-bold text-blue-600">
+          <Link
+            to="/"
+            className="flex items-center gap-2 font-black text-blue-600"
+          >
+            <div className="h-9 w-9 rounded-full bg-blue-500 text-white flex items-center justify-center">
+              CZ
+            </div>
             ClubZone
           </Link>
         </div>

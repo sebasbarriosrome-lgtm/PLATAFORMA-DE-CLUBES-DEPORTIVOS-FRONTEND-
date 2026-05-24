@@ -23,8 +23,9 @@ export const apiRequest = async (endpoint, options = {}) => {
   }
 
   if (!response.ok) {
-    console.error("Error del backend:", data);
-    throw new Error(data.message || "Error en la petición");
+    const errorMessage = data?.message || text || "Error en la petición";
+    console.error("Error del backend:", data, text);
+    throw new Error(errorMessage);
   }
 
   return data;
