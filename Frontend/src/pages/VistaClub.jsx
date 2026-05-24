@@ -7,6 +7,7 @@ export default function VistaClub() {
 
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [horarios, setHorarios] = useState([]);
 
   // SOLICITUD
   const [showModal, setShowModal] = useState(false);
@@ -37,6 +38,9 @@ export default function VistaClub() {
           logo: data.logo_url || data.logoUrl,
           phone: data.contacto,
         });
+
+        const horariosData = await apiRequest(`/clubs/horarios/slug/${slug}`);
+        setHorarios(horariosData);
       } catch (err) {
         console.error(err);
       } finally {
@@ -179,6 +183,47 @@ export default function VistaClub() {
                 <p className="text-xs text-slate-400">Estado</p>
                 <p className="font-semibold">Activo</p>
               </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-slate-200 bg-slate-50 p-5">
+              <h2 className="text-lg font-semibold mb-3">
+                Horarios de entrenamiento
+              </h2>
+              {horarios.length > 0 ? (
+                <div className="space-y-4">
+                  {horarios.map((horario) => (
+                    <div
+                      key={horario.id}
+                      className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200"
+                    >
+                      <div className="flex flex-wrap gap-3 items-center justify-between">
+                        <div>
+                          <p className="text-sm text-slate-500">
+                            {horario.dia}
+                          </p>
+                          <p className="font-semibold text-slate-900">
+                            {horario.horaInicio} - {horario.horaFin}
+                          </p>
+                        </div>
+                        <span className="text-xs rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+                          {horario.estado}
+                        </span>
+                      </div>
+
+                      <p className="mt-3 text-slate-600">
+                        {horario.descripcion || "Sin descripción"}
+                      </p>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Ubicación: {horario.ubicacion || "No especificada"}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-slate-500">
+                  No hay horarios publicados aún.
+                </p>
+              )}
             </div>
 
             <button

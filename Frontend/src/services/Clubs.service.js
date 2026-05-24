@@ -47,4 +47,31 @@ export const clubsService = {
       body: JSON.stringify({ accion }),
     }),
 
+  getHorariosClub: () =>
+    apiRequest("/clubs/horarios", {
+      method: "GET",
+    }),
+
+  getHorariosClubSlug: (slug) =>
+    apiRequest(`/clubs/horarios/slug/${slug}`, {
+      method: "GET",
+    }),
+
+  crearHorario: (horario) =>
+    apiRequest("/clubs/horarios", {
+      method: "POST",
+      body: JSON.stringify(horario),
+    }),
+
+  actualizarHorario: (id, horario) =>
+    apiRequest(`/clubs/horarios/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(horario),
+    }),
+
+  eliminarHorario: (id) =>
+    apiRequest(`/clubs/horarios/${id}`, {
+      method: "DELETE",
+    }),
+
 };
