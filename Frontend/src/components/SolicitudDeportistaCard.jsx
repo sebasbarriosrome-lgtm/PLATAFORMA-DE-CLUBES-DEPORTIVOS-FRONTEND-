@@ -7,6 +7,20 @@ function CardField({ label, value }) {
   );
 }
 
+function formatEstatura(estatura) {
+  if (estatura === null || estatura === undefined || estatura === "") {
+    return null;
+  }
+
+  const numeric = Number(estatura);
+  if (!Number.isFinite(numeric)) {
+    return estatura;
+  }
+
+  const meters = numeric > 10 ? numeric / 100 : numeric;
+  return `${meters.toFixed(2)} m`;
+}
+
 export default function SolicitudDeportistaCard({ s, onAction }) {
   return (
     <div className="rounded-2xl border border-slate-200 p-5 shadow-sm bg-white">
@@ -17,11 +31,14 @@ export default function SolicitudDeportistaCard({ s, onAction }) {
         </span>
       </div>
 
-      <p className="text-sm text-slate-500 mb-3">{s.mensaje}</p>
+      <div className="grid grid-cols-1 gap-3 text-sm mb-3">
+        <CardField label="Mensaje" value={s.mensaje} />
+      </div>
 
-      <div className="grid grid-cols-2 gap-3 text-sm">
+      <div className="grid grid-cols-3 gap-3 text-sm">
         <CardField label="Edad" value={s.edad} />
         <CardField label="Peso" value={s.peso} />
+        <CardField label="Estatura" value={formatEstatura(s.estatura)} />
       </div>
 
       <div className="flex justify-end gap-2 mt-4">

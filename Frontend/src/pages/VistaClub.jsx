@@ -41,6 +41,19 @@ export default function VistaClub() {
           phone: data.contacto,
         });
 
+        // aplicar colores del club si vienen
+        try {
+          const primary =
+            data.colorPrimario || data.color_primario || "#2563eb";
+          const secondary =
+            data.colorSecundario || data.color_secundario || "#ffffff";
+          document.documentElement.style.setProperty("--club-primary", primary);
+          document.documentElement.style.setProperty(
+            "--club-secondary",
+            secondary,
+          );
+        } catch (e) {}
+
         const horariosData = await apiRequest(`/clubs/horarios/slug/${slug}`);
         setHorarios(horariosData);
       } catch (err) {
@@ -247,7 +260,8 @@ export default function VistaClub() {
 
             <button
               onClick={() => setShowModal(true)}
-              className="mt-5 bg-blue-600 text-white px-4 py-2 rounded-lg"
+              className="mt-5 px-4 py-2 rounded-lg"
+              style={{ backgroundColor: "var(--club-primary)", color: "white" }}
             >
               Solicitar ingreso
             </button>
@@ -356,7 +370,11 @@ export default function VistaClub() {
               <button
                 onClick={handleEnviarSolicitud}
                 disabled={loadingRequest}
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg"
+                className="px-4 py-2 rounded-lg"
+                style={{
+                  backgroundColor: "var(--club-primary)",
+                  color: "white",
+                }}
               >
                 {loadingRequest ? "Enviando..." : "Enviar"}
               </button>

@@ -57,6 +57,31 @@ export const clubsService = {
       method: "GET",
     }),
 
+  getById: (id) =>
+    apiRequest(`/clubs/${id}`, {
+      method: "GET",
+    }),
+
+  getEntrenadores: () =>
+    apiRequest("/clubs/entrenadores", {
+      method: "GET",
+    }),
+
+  getDeportistas: () =>
+    apiRequest("/clubs/deportistas", {
+      method: "GET",
+    }),
+
+  eliminarEntrenador: (id) =>
+    apiRequest(`/clubs/entrenadores/${id}`, {
+      method: "DELETE",
+    }),
+
+  eliminarDeportista: (id) =>
+    apiRequest(`/clubs/deportistas/${id}`, {
+      method: "DELETE",
+    }),
+
   crearHorario: (horario) =>
     apiRequest("/clubs/horarios", {
       method: "POST",

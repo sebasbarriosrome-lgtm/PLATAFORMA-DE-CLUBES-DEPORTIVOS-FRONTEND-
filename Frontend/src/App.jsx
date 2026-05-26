@@ -8,6 +8,8 @@ import Clubs from "./pages/Directorio";
 import UserProfile from "./pages/UserProfile";
 import VistaClub from "./pages/VistaClub";
 import PanelClub from "./pages/PanelClub";
+import PanelEntrenador from "./pages/PanelEntrenador";
+import PanelDeportista from "./pages/PanelDeportista";
 import ProtectedRoute from "./components/ProtectedRoute";
 import LandingPage from "./pages/MainLanding";
 
@@ -59,6 +61,24 @@ function AnimatedRoutes() {
           element={
             <ProtectedRoute>
               <PanelClub />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/panel-entrenador"
+          element={
+            <ProtectedRoute>
+              <PanelEntrenador />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/panel-deportista"
+          element={
+            <ProtectedRoute>
+              <PanelDeportista />
             </ProtectedRoute>
           }
         />

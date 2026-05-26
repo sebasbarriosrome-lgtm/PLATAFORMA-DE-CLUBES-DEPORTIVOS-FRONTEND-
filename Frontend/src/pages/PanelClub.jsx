@@ -1,4 +1,16 @@
 import { useState, useEffect } from "react";
+
+function formatDate(ts) {
+  if (!ts) return "-";
+  const d = new Date(ts);
+  if (isNaN(d.getTime())) return ts;
+  return d.toLocaleDateString("es-ES", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+  });
+}
+
 import { useNavigate } from "react-router-dom";
 import { clubsService } from "../services/Clubs.service";
 import { apiRequest } from "../services/api";
@@ -9,11 +21,9 @@ const sections = [
   { name: "Información del club", icon: "🏠" },
   { name: "Personalización", icon: "🎨" },
   { name: "Categorías", icon: "📁" },
+  { name: "Grupos", icon: "👥" },
   { name: "Entrenadores", icon: "🧑‍🏫" },
   { name: "Deportistas", icon: "🏃" },
-  { name: "Entrenamientos", icon: "📆" },
-  { name: "Asistencia", icon: "✅" },
-  { name: "Rendimiento", icon: "📈" },
   { name: "Analítica", icon: "📊" },
   { name: "Invitar", icon: "✉️" },
   { name: "Solicitudes", icon: "📥" },
@@ -38,6 +48,11 @@ export default function PanelClub() {
   const [editingHorario, setEditingHorario] = useState(null);
   const [horariosLoading, setHorariosLoading] = useState(true);
 
+  const [entrenadoresClub, setEntrenadoresClub] = useState([]);
+  const [deportistasClub, setDeportistasClub] = useState([]);
+  const [entrenadoresLoading, setEntrenadoresLoading] = useState(true);
+  const [deportistasLoading, setDeportistasLoading] = useState(true);
+
   const solicitudesEntrenadores = solicitudes.filter(
     (s) => s.rol?.toLowerCase() === "entrenador",
   );
@@ -59,15 +74,45 @@ export default function PanelClub() {
       try {
         const data = await apiRequest("/clubs/panel-club");
 
+        let detalles = null;
+
         setPanelData(data);
+
+        // Si la respuesta incluye un id de club, intentar recuperar detalles desde /clubs/{id}
+        const clubId = data?.id || data?.clubId || data?.club?.id;
+        if (clubId) {
+          try {
+            detalles = await clubsService.getById(clubId);
+            // fusionar detalles (detalles preferidos) con data
+            setPanelData((prev) => ({ ...(prev || {}), ...(detalles || {}) }));
+          } catch (err) {
+            console.warn(
+              "No se pudieron obtener detalles del club por id",
+              err,
+            );
+          }
+        }
 
         setForm({
           descripcion: data.descripcion || "",
           logoUrl: data.clubLogo || "",
           bannerUrl: data.banner || "",
-          colorPrimario: data.colorPrimario || "",
-          colorSecundario: data.colorSecundario || "",
+          colorPrimario: data.colorPrimario || "#2563eb",
+          colorSecundario: data.colorSecundario || "#ffffff",
         });
+
+        // aplicar colores actuales al CSS para vista previa inmediata
+        try {
+          const primary = data.colorPrimario || "#2563eb";
+          const secondary = data.colorSecundario || "#ffffff";
+          document.documentElement.style.setProperty("--club-primary", primary);
+          document.documentElement.style.setProperty(
+            "--club-secondary",
+            secondary,
+          );
+        } catch {
+          /* ignore for SSR or environments without document */
+        }
       } catch (err) {
         console.error(err);
       } finally {
@@ -89,14 +134,26 @@ export default function PanelClub() {
 
     fetchPanel();
     fetchSolicitudes();
-    cargarHorarios(); // ✅ USAMOS LA NUEVA FUNCIÓN
+    cargarHorarios();
+    fetchEntrenadoresClub();
+    fetchDeportistasClub();
   }, []);
 
   const handleChange = (e) => {
-    setForm({
-      ...form,
-      [e.target.name]: e.target.value,
-    });
+    const { name, value } = e.target;
+    setForm((prev) => ({ ...prev, [name]: value }));
+
+    // si es color, aplicar variable CSS para vista previa inmediata
+    try {
+      if (name === "colorPrimario") {
+        document.documentElement.style.setProperty("--club-primary", value);
+      }
+      if (name === "colorSecundario") {
+        document.documentElement.style.setProperty("--club-secondary", value);
+      }
+    } catch {
+      // no hacemos nada si document no está disponible
+    }
   };
 
   const handleHorarioChange = (e) => {
@@ -196,6 +253,58 @@ export default function PanelClub() {
     } catch (err) {
       console.error(err);
       setSuccessMessage("❌ Error eliminando horario");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const fetchEntrenadoresClub = async () => {
+    setEntrenadoresLoading(true);
+    try {
+      const data = await clubsService.getEntrenadores();
+      setEntrenadoresClub(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error cargando entrenadores", err);
+      setEntrenadoresClub([]);
+    } finally {
+      setEntrenadoresLoading(false);
+    }
+  };
+
+  const fetchDeportistasClub = async () => {
+    setDeportistasLoading(true);
+    try {
+      const data = await clubsService.getDeportistas();
+      setDeportistasClub(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error cargando deportistas", err);
+      setDeportistasClub([]);
+    } finally {
+      setDeportistasLoading(false);
+    }
+  };
+
+  const handleEliminarEntrenador = async (id) => {
+    try {
+      await clubsService.eliminarEntrenador(id);
+      setSuccessMessage("✅ Entrenador eliminado");
+      await fetchEntrenadoresClub();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error eliminando entrenador");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const handleEliminarDeportista = async (id) => {
+    try {
+      await clubsService.eliminarDeportista(id);
+      setSuccessMessage("✅ Deportista eliminado");
+      await fetchDeportistasClub();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error eliminando deportista");
       setTimeout(() => setSuccessMessage(""), 3000);
     }
   };
@@ -371,23 +480,70 @@ export default function PanelClub() {
               {/* ✅ ENTRENADORES */}
               {activeSection === "Entrenadores" && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Gestión de entrenadores
-                  </h3>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        Gestión de entrenadores
+                      </h3>
+                      <p className="text-slate-500 mt-1">
+                        Lista los entrenadores del club y elimina a quien ya no
+                        deba formar parte del equipo.
+                      </p>
+                    </div>
+                  </div>
 
-                  <p className="text-slate-500">
-                    Esta sección será usada para administrar los entrenadores
-                    del club. Las solicitudes se gestionan exclusivamente en la
-                    pestaña "Solicitudes".
-                  </p>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
-                    <p className="font-medium">Próximamente:</p>
-                    <ul className="mt-3 list-disc pl-5 space-y-2 text-sm">
-                      <li>Listar entrenadores registrados</li>
-                      <li>Editar información del entrenador</li>
-                      <li>Activar / desactivar entrenadores</li>
-                    </ul>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    {entrenadoresLoading ? (
+                      <p className="text-slate-500">Cargando entrenadores...</p>
+                    ) : entrenadoresClub.length === 0 ? (
+                      <p className="text-slate-500">
+                        No hay entrenadores registrados.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-700">
+                          <thead>
+                            <tr className="border-b border-slate-200 bg-slate-100">
+                              <th className="px-4 py-3">Nombre</th>
+                              <th className="px-4 py-3">Email</th>
+                              <th className="px-4 py-3">Experiencia</th>
+                              <th className="px-4 py-3">Especialidad</th>
+                              <th className="px-4 py-3">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {entrenadoresClub.map((entrenador) => (
+                              <tr key={entrenador.entrenadorId}>
+                                <td className="px-4 py-3">
+                                  {entrenador.nombre} {entrenador.apellido}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {entrenador.email}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {entrenador.experiencia || "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {entrenador.especialidad || "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button
+                                    onClick={() =>
+                                      handleEliminarEntrenador(
+                                        entrenador.entrenadorId,
+                                      )
+                                    }
+                                    className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -395,23 +551,72 @@ export default function PanelClub() {
               {/* ✅ DEPORTISTAS */}
               {activeSection === "Deportistas" && (
                 <div className="space-y-4">
-                  <h3 className="text-lg font-semibold text-slate-800">
-                    Gestión de deportistas
-                  </h3>
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-lg font-semibold text-slate-800">
+                        Gestión de deportistas
+                      </h3>
+                      <p className="text-slate-500 mt-1">
+                        Lista los deportistas del club y elimina a quien ya no
+                        pertenece al club.
+                      </p>
+                    </div>
+                  </div>
 
-                  <p className="text-slate-500">
-                    Esta sección será usada para administrar los deportistas del
-                    club. Las solicitudes se gestionan exclusivamente en la
-                    pestaña "Solicitudes".
-                  </p>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5 text-slate-600">
-                    <p className="font-medium">Próximamente:</p>
-                    <ul className="mt-3 list-disc pl-5 space-y-2 text-sm">
-                      <li>Listar deportistas registrados</li>
-                      <li>Ver estadísticas y progreso</li>
-                      <li>Asignar entrenamientos</li>
-                    </ul>
+                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                    {deportistasLoading ? (
+                      <p className="text-slate-500">Cargando deportistas...</p>
+                    ) : deportistasClub.length === 0 ? (
+                      <p className="text-slate-500">
+                        No hay deportistas registrados.
+                      </p>
+                    ) : (
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-left text-sm text-slate-700">
+                          <thead>
+                            <tr className="border-b border-slate-200 bg-slate-100">
+                              <th className="px-4 py-3">Nombre</th>
+                              <th className="px-4 py-3">Email</th>
+                              <th className="px-4 py-3">Peso</th>
+                              <th className="px-4 py-3">Estatura</th>
+                              <th className="px-4 py-3">Acciones</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-slate-200">
+                            {deportistasClub.map((deportista) => (
+                              <tr key={deportista.deportistaId}>
+                                <td className="px-4 py-3">
+                                  {deportista.nombre} {deportista.apellido}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {deportista.email}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {deportista.peso ?? "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {deportista.estatura
+                                    ? `${deportista.estatura} cm`
+                                    : "-"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  <button
+                                    onClick={() =>
+                                      handleEliminarDeportista(
+                                        deportista.deportistaId,
+                                      )
+                                    }
+                                    className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -673,21 +878,29 @@ export default function PanelClub() {
                     className="w-full border rounded-lg px-4 py-2"
                   />
 
-                  <input
-                    name="colorPrimario"
-                    value={form.colorPrimario}
-                    onChange={handleChange}
-                    className="w-full border rounded-lg px-4 py-2"
-                    placeholder="#2563eb"
-                  />
+                  <div className="flex gap-4">
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        name="colorPrimario"
+                        value={form.colorPrimario}
+                        onChange={handleChange}
+                        className="w-12 h-10 rounded-lg border cursor-pointer"
+                      />
+                      <span className="text-sm">{form.colorPrimario}</span>
+                    </div>
 
-                  <input
-                    name="colorSecundario"
-                    value={form.colorSecundario}
-                    onChange={handleChange}
-                    className="w-full border rounded-lg px-4 py-2"
-                    placeholder="#ffffff"
-                  />
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="color"
+                        name="colorSecundario"
+                        value={form.colorSecundario}
+                        onChange={handleChange}
+                        className="w-12 h-10 rounded-lg border cursor-pointer"
+                      />
+                      <span className="text-sm">{form.colorSecundario}</span>
+                    </div>
+                  </div>
 
                   <button
                     onClick={handleSave}
@@ -707,6 +920,36 @@ export default function PanelClub() {
                     {panelData?.descripcion
                       ? panelData.descripcion
                       : "No hay descripción registrada"}
+                  </div>
+
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-400">Contacto</p>
+                      <p className="font-medium">
+                        {panelData?.contacto || "-"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-400">Estado</p>
+                      <p className="font-medium capitalize">
+                        {panelData?.estado || "-"}
+                      </p>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-400">Ciudad</p>
+                      <p className="font-medium">{panelData?.ciudad || "-"}</p>
+                    </div>
+
+                    <div className="rounded-lg bg-slate-50 p-3">
+                      <p className="text-xs text-slate-400">Creado</p>
+                      <p className="font-medium">
+                        {formatDate(
+                          panelData?.created_at || panelData?.createdAt,
+                        )}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )}

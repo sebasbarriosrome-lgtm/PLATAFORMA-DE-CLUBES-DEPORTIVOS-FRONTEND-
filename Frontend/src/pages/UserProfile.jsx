@@ -11,13 +11,45 @@ export default function UserProfile() {
   const [editedUser, setEditedUser] = useState({});
   const [saving, setSaving] = useState(false);
 
+  // eslint-disable-next-line no-unused-vars
+  const normalizeRole = (role) => {
+    if (Array.isArray(role)) {
+      return role.map(normalizeRole).join(" ");
+    }
+
+    if (role && typeof role === "object") {
+      return normalizeRole(
+        role.nombre || role.name || role.rol || role.authority || "",
+      );
+    }
+
+    return String(role || "")
+      .toLowerCase()
+      .replace(/[_\s-]/g, "");
+  };
+
+  // eslint-disable-next-line no-unused-vars
+  const isCoach = () => {
+    // Kept for reference but no longer needed
+    return false;
+  };
+
+  // eslint-disable-next-line no-unused-vars
+  const getRoleCandidates = (profile) => {
+    if (!profile) return [];
+    const candidates = [];
+    if (profile.rol !== undefined) candidates.push(profile.rol);
+    if (profile.role !== undefined) candidates.push(profile.role);
+    if (Array.isArray(profile.roles)) candidates.push(...profile.roles);
+    return candidates;
+  };
+
   useEffect(() => {
     const fetchUserData = async () => {
       try {
         setLoading(true);
 
         const data = await apiRequest("/usuarios/perfil");
-
         setUser(data);
         setEditedUser({
           firstName: data.name ? data.name.split(" ")[0] : "",
@@ -29,9 +61,9 @@ export default function UserProfile() {
             : "",
           photoUrl: data.photoUrl || "",
         });
+        setLoading(false);
       } catch (err) {
         setError(err.message);
-      } finally {
         setLoading(false);
       }
     };
@@ -129,20 +161,30 @@ export default function UserProfile() {
     navigate("/clubs");
   };
 
-  // ✅ NUEVO BOTÓN
+  // ✅ IR A MI CLUB/PANEL
   const handleMyClub = async () => {
     try {
-      const data = await apiRequest("/clubs/panel-club");
+      const rolValidacion = await apiRequest("/usuarios/validar-rol");
 
-      console.log("DATA:", data);
-
-      if (data && data.clubId) {
-        navigate("/panel-club");
-      } else {
-        navigate("/crear-club");
+      if (rolValidacion.tienePanel && rolValidacion.rol) {
+        const rol = rolValidacion.rol.toLowerCase();
+        if (rol.includes("entrenador")) {
+          navigate("/panel-entrenador");
+          return;
+        }
+        if (rol.includes("deportista")) {
+          navigate("/panel-deportista");
+          return;
+        }
+        if (rol.includes("admin")) {
+          navigate("/panel-club");
+          return;
+        }
       }
+
+      navigate("/crear-club");
     } catch (error) {
-      console.error(error);
+      console.error("Error en handleMyClub:", error);
       navigate("/crear-club");
     }
   };
