@@ -99,4 +99,78 @@ export const clubsService = {
       method: "DELETE",
     }),
 
+  // Categorías
+  getCategories: (search) =>
+    apiRequest(
+      `/clubs/categories${search ? `?search=${encodeURIComponent(search)}` : ``}`,
+      {
+        method: "GET",
+      },
+    ),
+
+  getCategoryById: (id) =>
+    apiRequest(`/clubs/categories/${id}`, {
+      method: "GET",
+    }),
+
+  createCategory: (categoria) =>
+    apiRequest(`/clubs/categories`, {
+      method: "POST",
+      body: JSON.stringify(categoria),
+    }),
+
+  updateCategory: (id, categoria) =>
+    apiRequest(`/clubs/categories/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(categoria),
+    }),
+
+  deleteCategory: (id) =>
+    apiRequest(`/clubs/categories/${id}`, {
+      method: "DELETE",
+    }),
+
+  assignEntrenadoresToCategory: (categoryId, entrenadorIds) =>
+    apiRequest(`/clubs/categories/${categoryId}/entrenadores`, {
+      method: "PUT",
+      body: JSON.stringify({ entrenadorIds }),
+    }),
+
+  // Grupos
+  getGroups: (search) =>
+    apiRequest(
+      `/clubs/groups${search ? `?search=${encodeURIComponent(search)}` : ``}`,
+      {
+        method: "GET",
+      },
+    ),
+
+  getGroupById: (id) =>
+    apiRequest(`/clubs/groups/${id}`, {
+      method: "GET",
+    }),
+
+  createGroup: (grupo) =>
+    apiRequest(`/clubs/groups`, {
+      method: "POST",
+      body: JSON.stringify(grupo),
+    }),
+
+  updateGroup: (id, grupo) =>
+    apiRequest(`/clubs/groups/${id}`, {
+      method: "PUT",
+      body: JSON.stringify(grupo),
+    }),
+
+  deleteGroup: (id) =>
+    apiRequest(`/clubs/groups/${id}`, {
+      method: "DELETE",
+    }),
+
+  assignEntrenadoresToGroup: (groupId, entrenadorIds) =>
+    apiRequest(`/clubs/groups/${groupId}/entrenadores`, {
+      method: "PUT",
+      body: JSON.stringify({ entrenadorIds }),
+    }),
+
 };

@@ -52,6 +52,33 @@ export default function PanelClub() {
   const [deportistasClub, setDeportistasClub] = useState([]);
   const [entrenadoresLoading, setEntrenadoresLoading] = useState(true);
   const [deportistasLoading, setDeportistasLoading] = useState(true);
+  const [deleteConfirm, setDeleteConfirm] = useState({
+    visible: false,
+    type: "",
+    id: null,
+    label: "",
+  });
+
+  // Categorías y Grupos
+  const [categories, setCategories] = useState([]);
+  const [categoriesLoading, setCategoriesLoading] = useState(false);
+  const [categoryForm, setCategoryForm] = useState({
+    nombre: "",
+    descripcion: "",
+    entrenadorIds: [],
+  });
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [categorySearch, setCategorySearch] = useState("");
+
+  const [groups, setGroups] = useState([]);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupForm, setGroupForm] = useState({
+    nombre: "",
+    descripcion: "",
+    entrenadorIds: [],
+  });
+  const [editingGroup, setEditingGroup] = useState(null);
+  const [groupSearch, setGroupSearch] = useState("");
 
   const solicitudesEntrenadores = solicitudes.filter(
     (s) => s.rol?.toLowerCase() === "entrenador",
@@ -137,6 +164,8 @@ export default function PanelClub() {
     cargarHorarios();
     fetchEntrenadoresClub();
     fetchDeportistasClub();
+    fetchCategories();
+    fetchGroups();
   }, []);
 
   const handleChange = (e) => {
@@ -309,8 +338,200 @@ export default function PanelClub() {
     }
   };
 
+  const confirmEliminar = (type, id, label) => {
+    setDeleteConfirm({
+      visible: true,
+      type,
+      id,
+      label,
+    });
+  };
+
+  const cancelDelete = () => {
+    setDeleteConfirm({
+      visible: false,
+      type: "",
+      id: null,
+      label: "",
+    });
+  };
+
+  const handleConfirmDelete = async () => {
+    try {
+      if (deleteConfirm.type === "entrenador") {
+        await handleEliminarEntrenador(deleteConfirm.id);
+      } else if (deleteConfirm.type === "deportista") {
+        await handleEliminarDeportista(deleteConfirm.id);
+      }
+    } finally {
+      cancelDelete();
+    }
+  };
+
   const handleHorarioCancelEdit = () => {
     resetHorarioForm();
+  };
+
+  // CATEGORÍAS / GRUPOS: funciones
+  const fetchCategories = async (search = "") => {
+    setCategoriesLoading(true);
+    try {
+      const data = await clubsService.getCategories(search);
+      setCategories(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error cargando categorías", err);
+      setCategories([]);
+    } finally {
+      setCategoriesLoading(false);
+    }
+  };
+
+  const fetchGroups = async (search = "") => {
+    setGroupsLoading(true);
+    try {
+      const data = await clubsService.getGroups(search);
+      setGroups(Array.isArray(data) ? data : []);
+    } catch (err) {
+      console.error("Error cargando grupos", err);
+      setGroups([]);
+    } finally {
+      setGroupsLoading(false);
+    }
+  };
+
+  const handleCategoryChange = (e) => {
+    const { name, value } = e.target;
+    setCategoryForm((p) => ({ ...p, [name]: value }));
+  };
+
+  const toggleCategoryEntrenador = (id) => {
+    setCategoryForm((p) => {
+      const exists = (p.entrenadorIds || []).includes(id);
+      return {
+        ...p,
+        entrenadorIds: exists
+          ? p.entrenadorIds.filter((x) => x !== id)
+          : [...(p.entrenadorIds || []), id],
+      };
+    });
+  };
+
+  const handleCategorySave = async () => {
+    try {
+      if (editingCategory) {
+        await clubsService.updateCategory(editingCategory.id, categoryForm);
+        setSuccessMessage("✅ Categoría actualizada");
+      } else {
+        await clubsService.createCategory(categoryForm);
+        setSuccessMessage("✅ Categoría creada");
+      }
+      setCategoryForm({ nombre: "", descripcion: "", entrenadorIds: [] });
+      setEditingCategory(null);
+      await fetchCategories();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error guardando categoría");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const handleEditCategory = (cat) => {
+    setEditingCategory(cat);
+    setCategoryForm({
+      nombre: cat.nombre || "",
+      descripcion: cat.descripcion || "",
+      entrenadorIds: cat.entrenadores
+        ? cat.entrenadores.map((e) => e.entrenadorId || e.id)
+        : [],
+    });
+  };
+
+  const handleDeleteCategory = async (id) => {
+    try {
+      await clubsService.deleteCategory(id);
+      setSuccessMessage("✅ Categoría eliminada");
+      await fetchCategories();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error eliminando categoría");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const handleCategorySearch = async (e) => {
+    const v = e.target.value;
+    setCategorySearch(v);
+    await fetchCategories(v);
+  };
+
+  // Grupos
+  const handleGroupChange = (e) => {
+    const { name, value } = e.target;
+    setGroupForm((p) => ({ ...p, [name]: value }));
+  };
+
+  const toggleGroupEntrenador = (id) => {
+    setGroupForm((p) => {
+      const exists = (p.entrenadorIds || []).includes(id);
+      return {
+        ...p,
+        entrenadorIds: exists
+          ? p.entrenadorIds.filter((x) => x !== id)
+          : [...(p.entrenadorIds || []), id],
+      };
+    });
+  };
+
+  const handleGroupSave = async () => {
+    try {
+      if (editingGroup) {
+        await clubsService.updateGroup(editingGroup.id, groupForm);
+        setSuccessMessage("✅ Grupo actualizado");
+      } else {
+        await clubsService.createGroup(groupForm);
+        setSuccessMessage("✅ Grupo creado");
+      }
+      setGroupForm({ nombre: "", descripcion: "", entrenadorIds: [] });
+      setEditingGroup(null);
+      await fetchGroups();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error guardando grupo");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const handleEditGroup = (g) => {
+    setEditingGroup(g);
+    setGroupForm({
+      nombre: g.nombre || "",
+      descripcion: g.descripcion || "",
+      entrenadorIds: g.entrenadores
+        ? g.entrenadores.map((e) => e.entrenadorId || e.id)
+        : [],
+    });
+  };
+
+  const handleDeleteGroup = async (id) => {
+    try {
+      await clubsService.deleteGroup(id);
+      setSuccessMessage("✅ Grupo eliminado");
+      await fetchGroups();
+      setTimeout(() => setSuccessMessage(""), 3000);
+    } catch (err) {
+      console.error(err);
+      setSuccessMessage("❌ Error eliminando grupo");
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
+  const handleGroupSearch = async (e) => {
+    const v = e.target.value;
+    setGroupSearch(v);
+    await fetchGroups(v);
   };
 
   const handleSave = async () => {
@@ -354,6 +575,9 @@ export default function PanelClub() {
         await clubsService.getSolicitudesPorRol("entrenador");
       const deportistas = await clubsService.getSolicitudesPorRol("deportista");
       setSolicitudes([...entrenadores, ...deportistas]);
+
+      // ✅ REFRESCAR las listas de entrenadores y deportistas
+      await Promise.all([fetchEntrenadoresClub(), fetchDeportistasClub()]);
 
       setSuccessMessage(
         accion === "aceptado"
@@ -476,6 +700,325 @@ export default function PanelClub() {
             )}
 
             {/* CONTENIDO */}
+            {/* CATEGORÍAS */}
+            {activeSection === "Categorías" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">
+                      Gestión de categorías
+                    </h3>
+                    <p className="text-slate-500">
+                      Crea, edita y asigna entrenadores a categorías.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={categorySearch}
+                      onChange={handleCategorySearch}
+                      placeholder="Buscar categoría..."
+                      className="rounded-xl border px-3 py-2"
+                    />
+                    <button
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCategoryForm({
+                          nombre: "",
+                          descripcion: "",
+                          entrenadorIds: [],
+                        });
+                      }}
+                      className="rounded-full bg-blue-600 text-white px-4 py-2"
+                    >
+                      Nuevo
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  {categoriesLoading ? (
+                    <p>Cargando categorías...</p>
+                  ) : categories.length === 0 ? (
+                    <p>No hay categorías registradas.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm text-slate-700">
+                        <thead>
+                          <tr className="border-b bg-slate-100">
+                            <th className="px-4 py-3">Nombre</th>
+                            <th className="px-4 py-3">Entrenadores</th>
+                            <th className="px-4 py-3">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {categories.map((cat) => (
+                            <tr key={cat.id}>
+                              <td className="px-4 py-3">{cat.nombre}</td>
+                              <td className="px-4 py-3">
+                                {(cat.entrenadores || [])
+                                  .map(
+                                    (e) =>
+                                      `${e.nombre || e.firstName || ""} ${e.apellido || e.lastName || ""}`,
+                                  )
+                                  .join(", ")}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={() => handleEditCategory(cat)}
+                                  className="mr-2 rounded-full border px-3 py-1 text-sm"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteCategory(cat.id)}
+                                  className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700"
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                  <h4 className="font-semibold mb-3">
+                    {editingCategory ? "Editar categoría" : "Nueva categoría"}
+                  </h4>
+                  <label className="block text-sm font-medium">Nombre</label>
+                  <input
+                    name="nombre"
+                    value={categoryForm.nombre}
+                    onChange={handleCategoryChange}
+                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
+                  />
+                  <label className="block text-sm font-medium">
+                    Descripción
+                  </label>
+                  <textarea
+                    name="descripcion"
+                    value={categoryForm.descripcion}
+                    onChange={handleCategoryChange}
+                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
+                  />
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">
+                      Asignar entrenadores
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {entrenadoresLoading ? (
+                        <p>Cargando...</p>
+                      ) : (
+                        entrenadoresClub.map((ent) => (
+                          <label
+                            key={ent.entrenadorId}
+                            className="inline-flex items-center gap-2 border rounded-full px-3 py-1 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={(
+                                categoryForm.entrenadorIds || []
+                              ).includes(ent.entrenadorId)}
+                              onChange={() =>
+                                toggleCategoryEntrenador(ent.entrenadorId)
+                              }
+                            />
+                            <span>
+                              {ent.nombre} {ent.apellido}
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={handleCategorySave}
+                      className="rounded-xl bg-blue-600 text-white px-4 py-2"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingCategory(null);
+                        setCategoryForm({
+                          nombre: "",
+                          descripcion: "",
+                          entrenadorIds: [],
+                        });
+                      }}
+                      className="rounded-xl border px-4 py-2"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* GRUPOS */}
+            {activeSection === "Grupos" && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-lg font-semibold">Gestión de grupos</h3>
+                    <p className="text-slate-500">
+                      Crea, edita y asigna entrenadores a grupos.
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      value={groupSearch}
+                      onChange={handleGroupSearch}
+                      placeholder="Buscar grupo..."
+                      className="rounded-xl border px-3 py-2"
+                    />
+                    <button
+                      onClick={() => {
+                        setEditingGroup(null);
+                        setGroupForm({
+                          nombre: "",
+                          descripcion: "",
+                          entrenadorIds: [],
+                        });
+                      }}
+                      className="rounded-full bg-blue-600 text-white px-4 py-2"
+                    >
+                      Nuevo
+                    </button>
+                  </div>
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+                  {groupsLoading ? (
+                    <p>Cargando grupos...</p>
+                  ) : groups.length === 0 ? (
+                    <p>No hay grupos registrados.</p>
+                  ) : (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left text-sm text-slate-700">
+                        <thead>
+                          <tr className="border-b bg-slate-100">
+                            <th className="px-4 py-3">Nombre</th>
+                            <th className="px-4 py-3">Entrenadores</th>
+                            <th className="px-4 py-3">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y">
+                          {groups.map((g) => (
+                            <tr key={g.id}>
+                              <td className="px-4 py-3">{g.nombre}</td>
+                              <td className="px-4 py-3">
+                                {(g.entrenadores || [])
+                                  .map(
+                                    (e) =>
+                                      `${e.nombre || e.firstName || ""} ${e.apellido || e.lastName || ""}`,
+                                  )
+                                  .join(", ")}
+                              </td>
+                              <td className="px-4 py-3">
+                                <button
+                                  onClick={() => handleEditGroup(g)}
+                                  className="mr-2 rounded-full border px-3 py-1 text-sm"
+                                >
+                                  Editar
+                                </button>
+                                <button
+                                  onClick={() => handleDeleteGroup(g.id)}
+                                  className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700"
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-2xl border border-slate-200 bg-white p-6">
+                  <h4 className="font-semibold mb-3">
+                    {editingGroup ? "Editar grupo" : "Nuevo grupo"}
+                  </h4>
+                  <label className="block text-sm font-medium">Nombre</label>
+                  <input
+                    name="nombre"
+                    value={groupForm.nombre}
+                    onChange={handleGroupChange}
+                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
+                  />
+                  <label className="block text-sm font-medium">
+                    Descripción
+                  </label>
+                  <textarea
+                    name="descripcion"
+                    value={groupForm.descripcion}
+                    onChange={handleGroupChange}
+                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
+                  />
+
+                  <div>
+                    <p className="text-sm font-medium mb-2">
+                      Asignar entrenadores
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {entrenadoresLoading ? (
+                        <p>Cargando...</p>
+                      ) : (
+                        entrenadoresClub.map((ent) => (
+                          <label
+                            key={ent.entrenadorId}
+                            className="inline-flex items-center gap-2 border rounded-full px-3 py-1 text-sm"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={(groupForm.entrenadorIds || []).includes(
+                                ent.entrenadorId,
+                              )}
+                              onChange={() =>
+                                toggleGroupEntrenador(ent.entrenadorId)
+                              }
+                            />
+                            <span>
+                              {ent.nombre} {ent.apellido}
+                            </span>
+                          </label>
+                        ))
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={handleGroupSave}
+                      className="rounded-xl bg-blue-600 text-white px-4 py-2"
+                    >
+                      Guardar
+                    </button>
+                    <button
+                      onClick={() => {
+                        setEditingGroup(null);
+                        setGroupForm({
+                          nombre: "",
+                          descripcion: "",
+                          entrenadorIds: [],
+                        });
+                      }}
+                      className="rounded-xl border px-4 py-2"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="bg-white p-6 rounded-2xl shadow">
               {/* ✅ ENTRENADORES */}
               {activeSection === "Entrenadores" && (
@@ -529,8 +1072,10 @@ export default function PanelClub() {
                                 <td className="px-4 py-3">
                                   <button
                                     onClick={() =>
-                                      handleEliminarEntrenador(
+                                      confirmEliminar(
+                                        "entrenador",
                                         entrenador.entrenadorId,
+                                        `${entrenador.nombre} ${entrenador.apellido}`,
                                       )
                                     }
                                     className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
@@ -602,8 +1147,10 @@ export default function PanelClub() {
                                 <td className="px-4 py-3">
                                   <button
                                     onClick={() =>
-                                      handleEliminarDeportista(
+                                      confirmEliminar(
+                                        "deportista",
                                         deportista.deportistaId,
+                                        `${deportista.nombre} ${deportista.apellido}`,
                                       )
                                     }
                                     className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
@@ -969,6 +1516,37 @@ export default function PanelClub() {
           </main>
         </div>
       </div>
+
+      {deleteConfirm.visible && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+            <h2 className="text-lg font-semibold text-slate-900">
+              ¿Seguro que quieres eliminar?
+            </h2>
+            <p className="mt-3 text-slate-600">
+              Estás por eliminar{" "}
+              <span className="font-semibold">{deleteConfirm.label}</span>. Esta
+              acción no se puede deshacer.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={cancelDelete}
+                className="rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                className="rounded-full bg-red-600 px-4 py-2 text-sm text-white hover:bg-red-700"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
