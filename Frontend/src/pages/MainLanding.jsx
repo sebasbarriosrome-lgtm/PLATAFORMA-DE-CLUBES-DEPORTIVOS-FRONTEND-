@@ -300,6 +300,24 @@ function LandingPage() {
           </div>
         </section>
 
+        <div className="pointer-events-none absolute inset-0 -z-10">
+          <div className="absolute -top-10 -left-10 w-72 h-24 bg-blue-500/80 rotate-[-25deg] rounded-md animate-float" />
+          <div className="absolute top-24 left-40 w-56 h-20 bg-white rotate-[-25deg] rounded-md shadow-lg animate-drift" />
+          <div className="absolute top-8 right-6 w-64 h-24 bg-blue-600/30 rotate-[-25deg] rounded-md animate-float" />
+          <div className="absolute top-1/2 -left-16 w-96 h-24 bg-sky-300 rotate-[-25deg] rounded-md animate-drift" />
+          <div className="absolute bottom-20 left-20 w-72 h-24 bg-blue-700 rotate-[-25deg] rounded-md animate-float" />
+          <div className="absolute bottom-10 right-0 w-80 h-28 bg-blue-400 rotate-[-25deg] rounded-md animate-drift" />
+          <div className="absolute bottom-32 right-32 w-40 h-16 bg-white rotate-[-25deg] rounded-md shadow-md animate-float" />
+          <div className="absolute top-1/4 right-1/3 w-64 h-20 bg-blue-300 rotate-[-25deg] rounded-md animate-drift" />
+          <div className="absolute bottom-1/4 left-1/2 w-48 h-16 bg-sky-200 rotate-[-25deg] rounded-md animate-float" />
+          <div className="absolute top-2/3 right-1/4 w-56 h-18 bg-blue-500 rotate-[-25deg] rounded-md animate-drift" />
+          <div className="absolute top-16 left-20 w-40 h-16 bg-slate-100/90 rotate-[-20deg] rounded-md animate-float" />
+          <div className="absolute top-36 right-24 w-28 h-12 bg-blue-200/80 rotate-[-18deg] rounded-md animate-drift" />
+          <div className="absolute bottom-44 left-10 w-44 h-20 bg-sky-100/90 rotate-[-15deg] rounded-md animate-drift" />
+          <div className="absolute bottom-6 left-40 w-32 h-20 bg-blue-600/30 rotate-[-22deg] rounded-md animate-float" />
+          <div className="absolute right-10 bottom-32 w-24 h-24 bg-sky-100/95 rotate-[-24deg] rounded-md animate-float" />
+          <div className="absolute top-52 left-1/4 w-28 h-28 bg-white/85 rotate-[-20deg] rounded-md shadow-xl animate-drift" />
+        </div>
         {/* ---------------- FOOTER ---------------- */}
         <footer className="border-t border-slate-200 bg-slate-50 px-6 py-7 text-center text-sm text-slate-600 sm:px-8">
           © {new Date().getFullYear()} ClubDeportivo. Soluciones de gestión para

@@ -1,0 +1,43 @@
+%% Diagrama de Casos de Uso - Plataforma de Clubes Deportivos
+%% Archivo generado para exportar PNG
+usecaseDiagram
+actor "Usuario" as U
+actor "Administrador Plataforma" as AP
+actor "Administrador Club" as AC
+actor "Entrenador" as E
+actor "Deportista" as D
+
+U --> (Registrarse)
+U --> (Iniciar sesión)
+U --> (Ver/Editar perfil)
+U --> (Explorar clubes)
+U --> (Solicitar ingreso a club)
+
+AP --> (Gestionar usuarios)
+AP --> (Ver analítica global)
+AP --> (Administrar plataforma)
+
+AC --> (Crear club)
+AC --> (Editar club)
+AC --> (Gestionar entrenadores)
+AC --> (Gestionar deportistas)
+AC --> (Gestionar categorías)
+AC --> (Gestionar grupos)
+AC --> (Asignar entrenadores a categorías/grupos)
+AC --> (Gestionar horarios)
+AC --> (Gestionar solicitudes de ingreso)
+AC --> (Ver analítica del club)
+
+E --> (Ver mis grupos)
+E --> (Ver deportistas asignados)
+E --> (Gestionar entrenamientos/horarios)
+E --> (Aceptar/rechazar solicitudes)
+
+D --> (Ver grupos disponibles)
+D --> (Solicitar unirse a club)
+D --> (Ver sus horarios y entrenadores)
+
+(Registrar club) <-- AC
+(Explorar clubes) <-- U
+(Ver analítica del club) <-- AC
+(Ver analítica global) <-- AP

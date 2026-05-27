@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <style>
+    .actor { font: 16px sans-serif; fill:#0f172a; }
+    .usecase { font:14px sans-serif; fill:#08203a; }
+    .box { fill:#f8fafc; stroke:#cbd5e1; stroke-width:1.5; rx:10; }
+    .line { stroke:#94a3b8; stroke-width:1.5; }
+  </style>
+
+  <!-- Actors -->
+  <g id="actors">
+    <rect class="box" x="20" y="40" width="220" height="60" rx="8"/>
+    <text x="30" y="78" class="actor">Usuario</text>
+
+    <rect class="box" x="20" y="140" width="220" height="60" rx="8"/>
+    <text x="30" y="178" class="actor">Administrador Plataforma</text>
+
+    <rect class="box" x="20" y="240" width="220" height="60" rx="8"/>
+    <text x="30" y="278" class="actor">Administrador Club</text>
+
+    <rect class="box" x="20" y="340" width="220" height="60" rx="8"/>
+    <text x="30" y="378" class="actor">Entrenador</text>
+
+    <rect class="box" x="20" y="440" width="220" height="60" rx="8"/>
+    <text x="30" y="478" class="actor">Deportista</text>
+  </g>
+
+  <!-- Use cases groups -->
+  <g id="usecases">
+    <rect class="box" x="320" y="20" width="520" height="120" rx="12"/>
+    <text x="340" y="48" class="usecase">Registrarse · Iniciar sesión · Ver/Editar perfil</text>
+    <text x="340" y="72" class="usecase">Explorar clubes · Solicitar ingreso</text>
+
+    <rect class="box" x="320" y="160" width="520" height="180" rx="12"/>
+    <text x="340" y="188" class="usecase">Crear/Editar club · Gestionar entrenadores ·</text>
+    <text x="340" y="208" class="usecase">Gestionar deportistas · Gestionar categorías</text>
+    <text x="340" y="228" class="usecase">Gestionar grupos · Asignar entrenadores</text>
+    <text x="340" y="248" class="usecase">Gestionar horarios · Gestionar solicitudes</text>
+
+    <rect class="box" x="320" y="360" width="520" height="140" rx="12"/>
+    <text x="340" y="388" class="usecase">Ver mis grupos · Ver deportistas asignados</text>
+    <text x="340" y="408" class="usecase">Gestionar entrenamientos/horarios · Aceptar/rechazar solicitudes</text>
+
+    <rect class="box" x="320" y="520" width="520" height="120" rx="12"/>
+    <text x="340" y="548" class="usecase">Ver grupos disponibles · Solicitar unirse a club</text>
+    <text x="340" y="572" class="usecase">Ver horarios y entrenadores</text>
+  </g>
+
+  <!-- Lines from actors to usecases -->
+  <g id="links">
+    <!-- Usuario -->
+    <line class="line" x1="240" y1="70" x2="320" y2="60" />
+    <line class="line" x1="240" y1="70" x2="320" y2="80" />
+
+    <!-- Administrador Plataforma -->
+    <line class="line" x1="240" y1="170" x2="320" y2="40" />
+
+    <!-- Administrador Club -->
+    <line class="line" x1="240" y1="270" x2="320" y2="200" />
+    <line class="line" x1="240" y1="270" x2="320" y2="220" />
+
+    <!-- Entrenador -->
+    <line class="line" x1="240" y1="370" x2="320" y2="380" />
+
+    <!-- Deportista -->
+    <line class="line" x1="240" y1="470" x2="320" y2="540" />
+  </g>
+
+  <text x="20" y="760" font-size="12" fill="#475569">Diagrama de casos de uso - Plataforma de Clubes Deportivos</text>
+</svg>
