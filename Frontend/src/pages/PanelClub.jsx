@@ -37,16 +37,6 @@ export default function PanelClub() {
   const [panelData, setPanelData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [solicitudes, setSolicitudes] = useState([]);
-  const [horarios, setHorarios] = useState([]);
-  const [horarioForm, setHorarioForm] = useState({
-    dia: "",
-    horaInicio: "",
-    horaFin: "",
-    ubicacion: "",
-    descripcion: "",
-  });
-  const [editingHorario, setEditingHorario] = useState(null);
-  const [horariosLoading, setHorariosLoading] = useState(true);
 
   const [entrenadoresClub, setEntrenadoresClub] = useState([]);
   const [deportistasClub, setDeportistasClub] = useState([]);
@@ -161,7 +151,6 @@ export default function PanelClub() {
 
     fetchPanel();
     fetchSolicitudes();
-    cargarHorarios();
     fetchEntrenadoresClub();
     fetchDeportistasClub();
     fetchCategories();
@@ -182,107 +171,6 @@ export default function PanelClub() {
       }
     } catch {
       // no hacemos nada si document no está disponible
-    }
-  };
-
-  const handleHorarioChange = (e) => {
-    setHorarioForm({
-      ...horarioForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const resetHorarioForm = () => {
-    setHorarioForm({
-      dia: "",
-      horaInicio: "",
-      horaFin: "",
-      ubicacion: "",
-      descripcion: "",
-    });
-    setEditingHorario(null);
-  };
-
-  const HorariosLoading = async () => {
-    setHorariosLoading(true);
-    try {
-      const datos = await clubsService.getHorariosClub();
-      setHorarios(datos);
-    } catch (err) {
-      console.error("Error cargando horarios", err);
-    }
-  };
-
-  const handleHorarioSave = async () => {
-    // ✅ VALIDACIÓN (AQUÍ VA)
-    if (!horarioForm.dia || !horarioForm.horaInicio || !horarioForm.horaFin) {
-      setSuccessMessage("❌ Faltan campos obligatorios");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      return;
-    }
-
-    try {
-      const payload = {
-        dia: horarioForm.dia,
-        horaInicio: horarioForm.horaInicio,
-        horaFin: horarioForm.horaFin,
-        ubicacion: horarioForm.ubicacion,
-        descripcion: horarioForm.descripcion,
-      };
-
-      if (editingHorario) {
-        await clubsService.actualizarHorario(editingHorario.id, payload);
-        setSuccessMessage("✅ Horario actualizado");
-      } else {
-        await clubsService.crearHorario(payload);
-        setSuccessMessage("✅ Horario creado");
-      }
-
-      resetHorarioForm();
-      await cargarHorarios();
-
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setSuccessMessage("❌ Error guardando horario");
-      setTimeout(() => setSuccessMessage(""), 3000);
-    }
-  };
-
-  const handleHorarioEdit = (horario) => {
-    setEditingHorario(horario);
-    setHorarioForm({
-      dia: horario.dia,
-      horaInicio: horario.horaInicio,
-      horaFin: horario.horaFin,
-      ubicacion: horario.ubicacion,
-      descripcion: horario.descripcion || "",
-    });
-  };
-
-  const cargarHorarios = async () => {
-    try {
-      setHorariosLoading(true);
-
-      const datos = await clubsService.getHorariosClub();
-      setHorarios(datos);
-    } catch (err) {
-      console.error("Error cargando horarios", err);
-    } finally {
-      setHorariosLoading(false);
-    }
-  };
-
-  const handleHorarioDelete = async (id) => {
-    try {
-      await clubsService.eliminarHorario(id);
-      setSuccessMessage("✅ Horario eliminado");
-      await cargarHorarios();
-      setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err) {
-      console.error(err);
-      setSuccessMessage("❌ Error eliminando horario");
-      setTimeout(() => setSuccessMessage(""), 3000);
     }
   };
 
@@ -366,10 +254,6 @@ export default function PanelClub() {
     } finally {
       cancelDelete();
     }
-  };
-
-  const handleHorarioCancelEdit = () => {
-    resetHorarioForm();
   };
 
   // CATEGORÍAS / GRUPOS: funciones
@@ -595,8 +479,14 @@ export default function PanelClub() {
     }
   };
 
+  const totalEntrenadores = entrenadoresClub.length;
+  const totalDeportistas = deportistasClub.length;
+  const totalCategorias = categories.length;
+  const totalGrupos = groups.length;
+  const totalSolicitudes = solicitudes.length;
+
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900">
+    <div className="min-h-screen bg-slate-100 text-slate-900">
       <div className="mx-auto max-w-7xl px-4 py-8">
         {/* ✅ MENSAJE PRO */}
         {successMessage && (
@@ -654,107 +544,331 @@ export default function PanelClub() {
           )}
         </div>
 
-        <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-          {/* SIDEBAR */}
-          <aside className="bg-white rounded-2xl p-5 shadow">
-            <nav className="space-y-2">
+        <div className="grid gap-6 xl:grid-cols-[300px_1fr]">
+          <aside className="sticky top-6 self-start rounded-[32px] bg-white p-6 shadow-xl">
+            <p className="mb-5 text-xs uppercase tracking-[0.3em] text-slate-400">
+              Navegación
+            </p>
+            <nav className="space-y-3">
               {sections.map((section) => (
                 <button
                   key={section.name}
                   onClick={() => setActiveSection(section.name)}
-                  className={`w-full text-left px-4 py-3 rounded-xl ${
+                  className={`flex w-full items-center gap-3 rounded-3xl border px-4 py-3 text-left text-sm font-medium transition ${
                     activeSection === section.name
-                      ? "bg-blue-600 text-white"
-                      : "bg-slate-50 hover:bg-blue-50"
+                      ? "border-blue-500 bg-blue-600 text-white shadow-md"
+                      : "border-slate-200 bg-slate-50 text-slate-700 hover:border-slate-300 hover:bg-slate-100"
                   }`}
                 >
-                  {section.icon} {section.name}
+                  <span className="text-lg">{section.icon}</span>
+                  <span>{section.name}</span>
                 </button>
               ))}
             </nav>
           </aside>
 
-          {/* MAIN */}
           <main className="space-y-6">
-            {/* ADMIN */}
-            {panelData && (
-              <div className="bg-white p-6 rounded-2xl shadow flex items-center gap-4">
-                {panelData.adminFoto ? (
-                  <img
-                    src={panelData.adminFoto}
-                    className="w-14 h-14 rounded-full object-cover"
-                  />
-                ) : (
-                  <div className="w-14 h-14 bg-blue-200 rounded-full flex items-center justify-center text-xl">
-                    {panelData.adminNombre?.[0]}
-                  </div>
-                )}
-
-                <div>
-                  <p className="font-bold">{panelData.adminNombre}</p>
-                  <p className="text-sm text-slate-500">
-                    Administrador del club
-                  </p>
-                </div>
+            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+              <div className="rounded-[32px] bg-white p-5 shadow-lg">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Deportistas
+                </p>
+                <p className="mt-4 text-3xl font-semibold text-slate-900">
+                  {totalDeportistas}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Registrados en tu club
+                </p>
               </div>
-            )}
+              <div className="rounded-[32px] bg-white p-5 shadow-lg">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Entrenadores
+                </p>
+                <p className="mt-4 text-3xl font-semibold text-slate-900">
+                  {totalEntrenadores}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Profesionales activos
+                </p>
+              </div>
+              <div className="rounded-[32px] bg-white p-5 shadow-lg">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Categorías
+                </p>
+                <p className="mt-4 text-3xl font-semibold text-slate-900">
+                  {totalCategorias}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">
+                  Espacios definidos
+                </p>
+              </div>
+              <div className="rounded-[32px] bg-white p-5 shadow-lg">
+                <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                  Grupos
+                </p>
+                <p className="mt-4 text-3xl font-semibold text-slate-900">
+                  {totalGrupos}
+                </p>
+                <p className="mt-2 text-sm text-slate-500">Equipos activos</p>
+              </div>
+            </div>
 
-            {/* CONTENIDO */}
-            {/* CATEGORÍAS */}
-            {activeSection === "Categorías" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">
-                      Gestión de categorías
-                    </h3>
-                    <p className="text-slate-500">
-                      Crea, edita y asigna entrenadores a categorías.
+            <section className="rounded-[32px] bg-white p-6 shadow-xl">
+              {activeSection === "Información del club" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Información del club
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Detalles clave del club y datos de contacto.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+                      <div className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          Estado
+                        </p>
+                        <p className="mt-3 text-lg font-semibold text-slate-900 capitalize">
+                          {panelData?.estado || "-"}
+                        </p>
+                      </div>
+                      <div className="rounded-3xl bg-slate-50 p-4">
+                        <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                          Ciudad
+                        </p>
+                        <p className="mt-3 text-lg font-semibold text-slate-900">
+                          {panelData?.ciudad || "-"}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                      Descripción
+                    </p>
+                    <p className="mt-3 text-slate-700">
+                      {panelData?.descripcion ||
+                        "No hay descripción registrada"}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={categorySearch}
-                      onChange={handleCategorySearch}
-                      placeholder="Buscar categoría..."
-                      className="rounded-xl border px-3 py-2"
-                    />
-                    <button
-                      onClick={() => {
-                        setEditingCategory(null);
-                        setCategoryForm({
-                          nombre: "",
-                          descripcion: "",
-                          entrenadorIds: [],
-                        });
-                      }}
-                      className="rounded-full bg-blue-600 text-white px-4 py-2"
-                    >
-                      Nuevo
-                    </button>
+
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Contacto
+                      </p>
+                      <p className="mt-2 font-medium text-slate-900">
+                        {panelData?.contacto || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Creado
+                      </p>
+                      <p className="mt-2 font-medium text-slate-900">
+                        {formatDate(
+                          panelData?.created_at || panelData?.createdAt,
+                        )}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Administrador
+                      </p>
+                      <p className="mt-2 font-medium text-slate-900">
+                        {panelData?.adminNombre || "-"}
+                      </p>
+                    </div>
+                    <div className="rounded-3xl bg-slate-50 p-4">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Email
+                      </p>
+                      <p className="mt-2 font-medium text-slate-900">
+                        {panelData?.adminEmail || panelData?.adminCorreo || "-"}
+                      </p>
+                    </div>
                   </div>
                 </div>
+              )}
 
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  {categoriesLoading ? (
-                    <p>Cargando categorías...</p>
-                  ) : categories.length === 0 ? (
-                    <p>No hay categorías registradas.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm text-slate-700">
-                        <thead>
-                          <tr className="border-b bg-slate-100">
-                            <th className="px-4 py-3">Nombre</th>
-                            <th className="px-4 py-3">Entrenadores</th>
-                            <th className="px-4 py-3">Acciones</th>
+              {activeSection === "Personalización" && (
+                <div className="space-y-6">
+                  <div className="grid gap-6 lg:grid-cols-[320px_1fr]">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
+                        Vista previa
+                      </p>
+                      <div className="mt-4 space-y-4">
+                        {form.logoUrl ? (
+                          <img
+                            src={form.logoUrl}
+                            alt="Logo preview"
+                            className="h-20 w-20 rounded-3xl object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-20 w-20 items-center justify-center rounded-3xl bg-white text-lg font-semibold text-slate-700">
+                            Logo
+                          </div>
+                        )}
+                        {form.bannerUrl ? (
+                          <img
+                            src={form.bannerUrl}
+                            alt="Banner preview"
+                            className="h-36 w-full rounded-3xl object-cover"
+                          />
+                        ) : (
+                          <div className="flex h-36 items-center justify-center rounded-3xl bg-white text-slate-500">
+                            Banner del club
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Descripción del club
+                        </label>
+                        <textarea
+                          name="descripcion"
+                          value={form.descripcion}
+                          onChange={handleChange}
+                          placeholder="Descripción del club"
+                          className="mt-2 h-28 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">
+                            URL del logo
+                          </label>
+                          <input
+                            name="logoUrl"
+                            value={form.logoUrl}
+                            onChange={handleChange}
+                            placeholder="URL del logo"
+                            className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-slate-700">
+                            URL del banner
+                          </label>
+                          <input
+                            name="bannerUrl"
+                            value={form.bannerUrl}
+                            onChange={handleChange}
+                            placeholder="URL del banner"
+                            className="mt-2 w-full rounded-3xl border border-slate-200 bg-white px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                          />
+                        </div>
+                      </div>
+                      <div className="grid gap-4 sm:grid-cols-2">
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">
+                            Color primario
+                          </p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <input
+                              type="color"
+                              name="colorPrimario"
+                              value={form.colorPrimario}
+                              onChange={handleChange}
+                              className="h-12 w-12 rounded-xl border border-slate-200 cursor-pointer"
+                            />
+                            <span className="text-sm text-slate-700">
+                              {form.colorPrimario}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-4">
+                          <p className="text-sm text-slate-500">
+                            Color secundario
+                          </p>
+                          <div className="mt-3 flex items-center gap-3">
+                            <input
+                              type="color"
+                              name="colorSecundario"
+                              value={form.colorSecundario}
+                              onChange={handleChange}
+                              className="h-12 w-12 rounded-xl border border-slate-200 cursor-pointer"
+                            />
+                            <span className="text-sm text-slate-700">
+                              {form.colorSecundario}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <button
+                        onClick={handleSave}
+                        className="rounded-3xl bg-blue-600 px-6 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700"
+                      >
+                        Guardar personalización
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {activeSection === "Categorías" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Categorías
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Administra categorías y asigna entrenadores a cada una.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <input
+                        value={categorySearch}
+                        onChange={handleCategorySearch}
+                        placeholder="Buscar categoría..."
+                        className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-auto"
+                      />
+                      <button
+                        onClick={() => {
+                          setEditingCategory(null);
+                          setCategoryForm({
+                            nombre: "",
+                            descripcion: "",
+                            entrenadorIds: [],
+                          });
+                        }}
+                        className="rounded-3xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700"
+                      >
+                        Nuevo
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {categoriesLoading ? (
+                      <div className="p-6 text-slate-500">
+                        Cargando categorías...
+                      </div>
+                    ) : categories.length === 0 ? (
+                      <div className="p-6 text-slate-500">
+                        No hay categorías registradas.
+                      </div>
+                    ) : (
+                      <table className="min-w-full text-left text-sm text-slate-700">
+                        <thead className="bg-slate-100">
+                          <tr>
+                            <th className="px-4 py-4">Nombre</th>
+                            <th className="px-4 py-4">Entrenadores</th>
+                            <th className="px-4 py-4">Acciones</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y divide-slate-200">
                           {categories.map((cat) => (
                             <tr key={cat.id}>
-                              <td className="px-4 py-3">{cat.nombre}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">{cat.nombre}</td>
+                              <td className="px-4 py-4">
                                 {(cat.entrenadores || [])
                                   .map(
                                     (e) =>
@@ -762,16 +876,16 @@ export default function PanelClub() {
                                   )
                                   .join(", ")}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">
                                 <button
                                   onClick={() => handleEditCategory(cat)}
-                                  className="mr-2 rounded-full border px-3 py-1 text-sm"
+                                  className="mr-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
                                 >
                                   Editar
                                 </button>
                                 <button
                                   onClick={() => handleDeleteCategory(cat.id)}
-                                  className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700"
+                                  className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
                                 >
                                   Eliminar
                                 </button>
@@ -780,140 +894,150 @@ export default function PanelClub() {
                           ))}
                         </tbody>
                       </table>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold text-slate-900 mb-4">
+                      {editingCategory ? "Editar categoría" : "Nueva categoría"}
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Nombre
+                        </label>
+                        <input
+                          name="nombre"
+                          value={categoryForm.nombre}
+                          onChange={handleCategoryChange}
+                          className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Descripción
+                        </label>
+                        <textarea
+                          name="descripcion"
+                          value={categoryForm.descripcion}
+                          onChange={handleCategoryChange}
+                          className="mt-2 h-24 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
                     </div>
-                  )}
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2">
+                        Asignar entrenadores
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {entrenadoresLoading ? (
+                          <p className="text-slate-500">Cargando...</p>
+                        ) : (
+                          entrenadoresClub.map((ent) => (
+                            <label
+                              key={ent.entrenadorId}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={(
+                                  categoryForm.entrenadorIds || []
+                                ).includes(ent.entrenadorId)}
+                                onChange={() =>
+                                  toggleCategoryEntrenador(ent.entrenadorId)
+                                }
+                                className="h-4 w-4 rounded border-slate-300"
+                              />
+                              <span>
+                                {ent.nombre} {ent.apellido}
+                              </span>
+                            </label>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                      <button
+                        onClick={handleCategorySave}
+                        className="rounded-3xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700"
+                      >
+                        Guardar categoría
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingCategory(null);
+                          setCategoryForm({
+                            nombre: "",
+                            descripcion: "",
+                            entrenadorIds: [],
+                          });
+                        }}
+                        className="rounded-3xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Cancelar
+                      </button>
+                    </div>
+                  </div>
                 </div>
+              )}
 
-                <div className="rounded-2xl border border-slate-200 bg-white p-6">
-                  <h4 className="font-semibold mb-3">
-                    {editingCategory ? "Editar categoría" : "Nueva categoría"}
-                  </h4>
-                  <label className="block text-sm font-medium">Nombre</label>
-                  <input
-                    name="nombre"
-                    value={categoryForm.nombre}
-                    onChange={handleCategoryChange}
-                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
-                  />
-                  <label className="block text-sm font-medium">
-                    Descripción
-                  </label>
-                  <textarea
-                    name="descripcion"
-                    value={categoryForm.descripcion}
-                    onChange={handleCategoryChange}
-                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
-                  />
-
-                  <div>
-                    <p className="text-sm font-medium mb-2">
-                      Asignar entrenadores
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {entrenadoresLoading ? (
-                        <p>Cargando...</p>
-                      ) : (
-                        entrenadoresClub.map((ent) => (
-                          <label
-                            key={ent.entrenadorId}
-                            className="inline-flex items-center gap-2 border rounded-full px-3 py-1 text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(
-                                categoryForm.entrenadorIds || []
-                              ).includes(ent.entrenadorId)}
-                              onChange={() =>
-                                toggleCategoryEntrenador(ent.entrenadorId)
-                              }
-                            />
-                            <span>
-                              {ent.nombre} {ent.apellido}
-                            </span>
-                          </label>
-                        ))
-                      )}
+              {activeSection === "Grupos" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Grupos
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Organiza equipos y asigna entrenadores según objetivos.
+                      </p>
+                    </div>
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                      <input
+                        value={groupSearch}
+                        onChange={handleGroupSearch}
+                        placeholder="Buscar grupo..."
+                        className="w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-900 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100 sm:w-auto"
+                      />
+                      <button
+                        onClick={() => {
+                          setEditingGroup(null);
+                          setGroupForm({
+                            nombre: "",
+                            descripcion: "",
+                            entrenadorIds: [],
+                          });
+                        }}
+                        className="rounded-3xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700"
+                      >
+                        Nuevo
+                      </button>
                     </div>
                   </div>
 
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={handleCategorySave}
-                      className="rounded-xl bg-blue-600 text-white px-4 py-2"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingCategory(null);
-                        setCategoryForm({
-                          nombre: "",
-                          descripcion: "",
-                          entrenadorIds: [],
-                        });
-                      }}
-                      className="rounded-xl border px-4 py-2"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {/* GRUPOS */}
-            {activeSection === "Grupos" && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-lg font-semibold">Gestión de grupos</h3>
-                    <p className="text-slate-500">
-                      Crea, edita y asigna entrenadores a grupos.
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      value={groupSearch}
-                      onChange={handleGroupSearch}
-                      placeholder="Buscar grupo..."
-                      className="rounded-xl border px-3 py-2"
-                    />
-                    <button
-                      onClick={() => {
-                        setEditingGroup(null);
-                        setGroupForm({
-                          nombre: "",
-                          descripcion: "",
-                          entrenadorIds: [],
-                        });
-                      }}
-                      className="rounded-full bg-blue-600 text-white px-4 py-2"
-                    >
-                      Nuevo
-                    </button>
-                  </div>
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                  {groupsLoading ? (
-                    <p>Cargando grupos...</p>
-                  ) : groups.length === 0 ? (
-                    <p>No hay grupos registrados.</p>
-                  ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-left text-sm text-slate-700">
-                        <thead>
-                          <tr className="border-b bg-slate-100">
-                            <th className="px-4 py-3">Nombre</th>
-                            <th className="px-4 py-3">Entrenadores</th>
-                            <th className="px-4 py-3">Acciones</th>
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {groupsLoading ? (
+                      <div className="p-6 text-slate-500">
+                        Cargando grupos...
+                      </div>
+                    ) : groups.length === 0 ? (
+                      <div className="p-6 text-slate-500">
+                        No hay grupos registrados.
+                      </div>
+                    ) : (
+                      <table className="min-w-full text-left text-sm text-slate-700">
+                        <thead className="bg-slate-100">
+                          <tr>
+                            <th className="px-4 py-4">Nombre</th>
+                            <th className="px-4 py-4">Entrenadores</th>
+                            <th className="px-4 py-4">Acciones</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y">
+                        <tbody className="divide-y divide-slate-200">
                           {groups.map((g) => (
                             <tr key={g.id}>
-                              <td className="px-4 py-3">{g.nombre}</td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">{g.nombre}</td>
+                              <td className="px-4 py-4">
                                 {(g.entrenadores || [])
                                   .map(
                                     (e) =>
@@ -921,16 +1045,16 @@ export default function PanelClub() {
                                   )
                                   .join(", ")}
                               </td>
-                              <td className="px-4 py-3">
+                              <td className="px-4 py-4">
                                 <button
                                   onClick={() => handleEditGroup(g)}
-                                  className="mr-2 rounded-full border px-3 py-1 text-sm"
+                                  className="mr-2 rounded-full border border-slate-300 px-4 py-2 text-sm text-slate-700 transition hover:bg-slate-100"
                                 >
                                   Editar
                                 </button>
                                 <button
                                   onClick={() => handleDeleteGroup(g.id)}
-                                  className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700"
+                                  className="rounded-full border border-red-300 px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
                                 >
                                   Eliminar
                                 </button>
@@ -939,575 +1063,316 @@ export default function PanelClub() {
                           ))}
                         </tbody>
                       </table>
-                    </div>
-                  )}
-                </div>
-
-                <div className="rounded-2xl border border-slate-200 bg-white p-6">
-                  <h4 className="font-semibold mb-3">
-                    {editingGroup ? "Editar grupo" : "Nuevo grupo"}
-                  </h4>
-                  <label className="block text-sm font-medium">Nombre</label>
-                  <input
-                    name="nombre"
-                    value={groupForm.nombre}
-                    onChange={handleGroupChange}
-                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
-                  />
-                  <label className="block text-sm font-medium">
-                    Descripción
-                  </label>
-                  <textarea
-                    name="descripcion"
-                    value={groupForm.descripcion}
-                    onChange={handleGroupChange}
-                    className="mt-2 mb-3 w-full rounded-xl border px-4 py-2"
-                  />
-
-                  <div>
-                    <p className="text-sm font-medium mb-2">
-                      Asignar entrenadores
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {entrenadoresLoading ? (
-                        <p>Cargando...</p>
-                      ) : (
-                        entrenadoresClub.map((ent) => (
-                          <label
-                            key={ent.entrenadorId}
-                            className="inline-flex items-center gap-2 border rounded-full px-3 py-1 text-sm"
-                          >
-                            <input
-                              type="checkbox"
-                              checked={(groupForm.entrenadorIds || []).includes(
-                                ent.entrenadorId,
-                              )}
-                              onChange={() =>
-                                toggleGroupEntrenador(ent.entrenadorId)
-                              }
-                            />
-                            <span>
-                              {ent.nombre} {ent.apellido}
-                            </span>
-                          </label>
-                        ))
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="mt-4 flex gap-2">
-                    <button
-                      onClick={handleGroupSave}
-                      className="rounded-xl bg-blue-600 text-white px-4 py-2"
-                    >
-                      Guardar
-                    </button>
-                    <button
-                      onClick={() => {
-                        setEditingGroup(null);
-                        setGroupForm({
-                          nombre: "",
-                          descripcion: "",
-                          entrenadorIds: [],
-                        });
-                      }}
-                      className="rounded-xl border px-4 py-2"
-                    >
-                      Cancelar
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="bg-white p-6 rounded-2xl shadow">
-              {/* ✅ ENTRENADORES */}
-              {activeSection === "Entrenadores" && (
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-800">
-                        Gestión de entrenadores
-                      </h3>
-                      <p className="text-slate-500 mt-1">
-                        Lista los entrenadores del club y elimina a quien ya no
-                        deba formar parte del equipo.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    {entrenadoresLoading ? (
-                      <p className="text-slate-500">Cargando entrenadores...</p>
-                    ) : entrenadoresClub.length === 0 ? (
-                      <p className="text-slate-500">
-                        No hay entrenadores registrados.
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-700">
-                          <thead>
-                            <tr className="border-b border-slate-200 bg-slate-100">
-                              <th className="px-4 py-3">Nombre</th>
-                              <th className="px-4 py-3">Email</th>
-                              <th className="px-4 py-3">Experiencia</th>
-                              <th className="px-4 py-3">Especialidad</th>
-                              <th className="px-4 py-3">Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {entrenadoresClub.map((entrenador) => (
-                              <tr key={entrenador.entrenadorId}>
-                                <td className="px-4 py-3">
-                                  {entrenador.nombre} {entrenador.apellido}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {entrenador.email}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {entrenador.experiencia || "-"}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {entrenador.especialidad || "-"}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button
-                                    onClick={() =>
-                                      confirmEliminar(
-                                        "entrenador",
-                                        entrenador.entrenadorId,
-                                        `${entrenador.nombre} ${entrenador.apellido}`,
-                                      )
-                                    }
-                                    className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
                     )}
                   </div>
-                </div>
-              )}
 
-              {/* ✅ DEPORTISTAS */}
-              {activeSection === "Deportistas" && (
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-800">
-                        Gestión de deportistas
-                      </h3>
-                      <p className="text-slate-500 mt-1">
-                        Lista los deportistas del club y elimina a quien ya no
-                        pertenece al club.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
-                    {deportistasLoading ? (
-                      <p className="text-slate-500">Cargando deportistas...</p>
-                    ) : deportistasClub.length === 0 ? (
-                      <p className="text-slate-500">
-                        No hay deportistas registrados.
-                      </p>
-                    ) : (
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-left text-sm text-slate-700">
-                          <thead>
-                            <tr className="border-b border-slate-200 bg-slate-100">
-                              <th className="px-4 py-3">Nombre</th>
-                              <th className="px-4 py-3">Email</th>
-                              <th className="px-4 py-3">Peso</th>
-                              <th className="px-4 py-3">Estatura</th>
-                              <th className="px-4 py-3">Acciones</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-200">
-                            {deportistasClub.map((deportista) => (
-                              <tr key={deportista.deportistaId}>
-                                <td className="px-4 py-3">
-                                  {deportista.nombre} {deportista.apellido}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {deportista.email}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {deportista.peso ?? "-"}
-                                </td>
-                                <td className="px-4 py-3">
-                                  {deportista.estatura
-                                    ? `${deportista.estatura} cm`
-                                    : "-"}
-                                </td>
-                                <td className="px-4 py-3">
-                                  <button
-                                    onClick={() =>
-                                      confirmEliminar(
-                                        "deportista",
-                                        deportista.deportistaId,
-                                        `${deportista.nombre} ${deportista.apellido}`,
-                                      )
-                                    }
-                                    className="rounded-full border border-red-300 px-3 py-1 text-sm text-red-700 hover:bg-red-50"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </td>
-                              </tr>
-                            ))}
-                          </tbody>
-                        </table>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
-              {/* CONTENIDO */}
-              {/* ✅ ENTRENAMIENTOS */}
-              {activeSection === "Entrenamientos" && (
-                <div className="space-y-6">
-                  <div>
-                    <h3 className="text-lg font-semibold text-slate-800">
-                      Horarios de entrenamientos
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="text-xl font-semibold text-slate-900 mb-4">
+                      {editingGroup ? "Editar grupo" : "Nuevo grupo"}
                     </h3>
-                    <p className="text-slate-500">
-                      Agrega y administra los horarios de entrenamiento del
-                      club.
-                    </p>
-                  </div>
-
-                  <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                      <h4 className="font-semibold text-slate-800 mb-4">
-                        Horarios existentes
-                      </h4>
-
-                      {horariosLoading ? (
-                        <p className="text-slate-500">Cargando horarios...</p>
-                      ) : horarios.length === 0 ? (
-                        <p className="text-slate-500">
-                          No hay horarios registrados todavía.
-                        </p>
-                      ) : (
-                        <div className="space-y-4">
-                          {horarios.map((horario) => (
-                            <div
-                              key={horario.id}
-                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                            >
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                                <div>
-                                  <p className="font-semibold text-slate-900">
-                                    {horario.dia} • {horario.horaInicio} -{" "}
-                                    {horario.horaFin}
-                                  </p>
-                                  <p className="text-sm text-slate-500">
-                                    {horario.ubicacion || "Sin ubicación"}
-                                  </p>
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <span className="rounded-full bg-blue-100 px-3 py-1 text-xs text-blue-700">
-                                    {horario.estado || "activo"}
-                                  </span>
-                                  <button
-                                    onClick={() => handleHorarioEdit(horario)}
-                                    className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                                  >
-                                    Editar
-                                  </button>
-                                  <button
-                                    onClick={() =>
-                                      handleHorarioDelete(horario.id)
-                                    }
-                                    className="rounded-full border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
-                                  >
-                                    Eliminar
-                                  </button>
-                                </div>
-                              </div>
-                              <p className="mt-3 text-slate-600 text-sm">
-                                {horario.descripcion || "Sin descripción"}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                    <div className="grid gap-4 sm:grid-cols-2">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Nombre
+                        </label>
+                        <input
+                          name="nombre"
+                          value={groupForm.nombre}
+                          onChange={handleGroupChange}
+                          className="mt-2 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Descripción
+                        </label>
+                        <textarea
+                          name="descripcion"
+                          value={groupForm.descripcion}
+                          onChange={handleGroupChange}
+                          className="mt-2 h-24 w-full rounded-3xl border border-slate-200 bg-slate-50 px-4 py-3 shadow-sm focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                        />
+                      </div>
                     </div>
-
-                    <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                      <div className="flex items-center justify-between gap-4">
-                        <h4 className="font-semibold text-slate-800 mb-4">
-                          {editingHorario ? "Editar horario" : "Nuevo horario"}
-                        </h4>
-                        {editingHorario && (
-                          <button
-                            onClick={handleHorarioCancelEdit}
-                            className="text-sm text-slate-500 underline"
-                          >
-                            Cancelar edición
-                          </button>
+                    <div className="mt-4">
+                      <p className="text-sm font-medium text-slate-700 mb-2">
+                        Asignar entrenadores
+                      </p>
+                      <div className="flex flex-wrap gap-2">
+                        {entrenadoresLoading ? (
+                          <p className="text-slate-500">Cargando...</p>
+                        ) : (
+                          entrenadoresClub.map((ent) => (
+                            <label
+                              key={ent.entrenadorId}
+                              className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700"
+                            >
+                              <input
+                                type="checkbox"
+                                checked={(
+                                  groupForm.entrenadorIds || []
+                                ).includes(ent.entrenadorId)}
+                                onChange={() =>
+                                  toggleGroupEntrenador(ent.entrenadorId)
+                                }
+                                className="h-4 w-4 rounded border-slate-300"
+                              />
+                              <span>
+                                {ent.nombre} {ent.apellido}
+                              </span>
+                            </label>
+                          ))
                         )}
                       </div>
-
-                      <label className="block text-sm font-medium text-slate-700">
-                        Día
-                      </label>
-                      <select
-                        name="dia"
-                        value={horarioForm.dia}
-                        onChange={handleHorarioChange}
-                        className="mt-2 mb-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                      >
-                        <option>Lunes</option>
-                        <option>Martes</option>
-                        <option>Miércoles</option>
-                        <option>Jueves</option>
-                        <option>Viernes</option>
-                        <option>Sábado</option>
-                        <option>Domingo</option>
-                      </select>
-
-                      <div className="grid gap-4 sm:grid-cols-2">
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700">
-                            Hora inicio
-                          </label>
-                          <input
-                            type="time"
-                            name="horaInicio"
-                            value={horarioForm.horaInicio}
-                            onChange={handleHorarioChange}
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-slate-700">
-                            Hora fin
-                          </label>
-                          <input
-                            type="time"
-                            name="horaFin"
-                            value={horarioForm.horaFin}
-                            onChange={handleHorarioChange}
-                            className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                          />
-                        </div>
-                      </div>
-
-                      <label className="block text-sm font-medium text-slate-700 mt-4">
-                        Ubicación
-                      </label>
-                      <input
-                        name="ubicacion"
-                        value={horarioForm.ubicacion}
-                        onChange={handleHorarioChange}
-                        placeholder="Ej. Cancha principal"
-                        className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                      />
-
-                      <label className="block text-sm font-medium text-slate-700 mt-4">
-                        Descripción
-                      </label>
-                      <textarea
-                        name="descripcion"
-                        value={horarioForm.descripcion}
-                        onChange={handleHorarioChange}
-                        placeholder="Ej. Entrenamiento de velocidad y fuerza"
-                        className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 resize-none"
-                        rows={4}
-                      />
-
+                    </div>
+                    <div className="mt-6 flex flex-col gap-3 sm:flex-row">
                       <button
-                        onClick={handleHorarioSave}
-                        className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
+                        onClick={handleGroupSave}
+                        className="rounded-3xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-lg transition hover:bg-blue-700"
                       >
-                        {editingHorario
-                          ? "Actualizar horario"
-                          : "Guardar horario"}
+                        Guardar grupo
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingGroup(null);
+                          setGroupForm({
+                            nombre: "",
+                            descripcion: "",
+                            entrenadorIds: [],
+                          });
+                        }}
+                        className="rounded-3xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
+                      >
+                        Cancelar
                       </button>
                     </div>
                   </div>
                 </div>
               )}
 
+              {activeSection === "Entrenadores" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Entrenadores
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Mira el equipo técnico y administra sus permisos.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {entrenadoresLoading ? (
+                      <div className="p-6 text-slate-500">
+                        Cargando entrenadores...
+                      </div>
+                    ) : entrenadoresClub.length === 0 ? (
+                      <div className="p-6 text-slate-500">
+                        No hay entrenadores registrados.
+                      </div>
+                    ) : (
+                      <table className="min-w-full text-left text-sm text-slate-700">
+                        <thead className="bg-slate-100">
+                          <tr>
+                            <th className="px-4 py-4">Nombre</th>
+                            <th className="px-4 py-4">Email</th>
+                            <th className="px-4 py-4">Experiencia</th>
+                            <th className="px-4 py-4">Especialidad</th>
+                            <th className="px-4 py-4">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {entrenadoresClub.map((entrenador) => (
+                            <tr key={entrenador.entrenadorId}>
+                              <td className="px-4 py-4">
+                                {entrenador.nombre} {entrenador.apellido}
+                              </td>
+                              <td className="px-4 py-4">{entrenador.email}</td>
+                              <td className="px-4 py-4">
+                                {entrenador.experiencia || "-"}
+                              </td>
+                              <td className="px-4 py-4">
+                                {entrenador.especialidad || "-"}
+                              </td>
+                              <td className="px-4 py-4">
+                                <button
+                                  onClick={() =>
+                                    confirmEliminar(
+                                      "entrenador",
+                                      entrenador.entrenadorId,
+                                      `${entrenador.nombre} ${entrenador.apellido}`,
+                                    )
+                                  }
+                                  className="rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {activeSection === "Deportistas" && (
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Deportistas
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Revisa los miembros activos y gestiona las bajas.
+                      </p>
+                    </div>
+                  </div>
+                  <div className="overflow-hidden rounded-3xl border border-slate-200 bg-slate-50 shadow-sm">
+                    {deportistasLoading ? (
+                      <div className="p-6 text-slate-500">
+                        Cargando deportistas...
+                      </div>
+                    ) : deportistasClub.length === 0 ? (
+                      <div className="p-6 text-slate-500">
+                        No hay deportistas registrados.
+                      </div>
+                    ) : (
+                      <table className="min-w-full text-left text-sm text-slate-700">
+                        <thead className="bg-slate-100">
+                          <tr>
+                            <th className="px-4 py-4">Nombre</th>
+                            <th className="px-4 py-4">Email</th>
+                            <th className="px-4 py-4">Peso</th>
+                            <th className="px-4 py-4">Estatura</th>
+                            <th className="px-4 py-4">Acciones</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-200">
+                          {deportistasClub.map((deportista) => (
+                            <tr key={deportista.deportistaId}>
+                              <td className="px-4 py-4">
+                                {deportista.nombre} {deportista.apellido}
+                              </td>
+                              <td className="px-4 py-4">{deportista.email}</td>
+                              <td className="px-4 py-4">
+                                {deportista.peso ?? "-"}
+                              </td>
+                              <td className="px-4 py-4">
+                                {deportista.estatura
+                                  ? `${deportista.estatura} cm`
+                                  : "-"}
+                              </td>
+                              <td className="px-4 py-4">
+                                <button
+                                  onClick={() =>
+                                    confirmEliminar(
+                                      "deportista",
+                                      deportista.deportistaId,
+                                      `${deportista.nombre} ${deportista.apellido}`,
+                                    )
+                                  }
+                                  className="rounded-full border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-50"
+                                >
+                                  Eliminar
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
+
               {activeSection === "Solicitudes" && (
                 <div className="space-y-8">
-                  <h2 className="text-xl font-bold mb-4">Solicitudes</h2>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Solicitudes de entrenadores
-                    </h3>
-
-                    {solicitudesEntrenadores.length > 0 ? (
-                      <div className="space-y-4">
-                        {solicitudesEntrenadores.map((s) => (
-                          <SolicitudEntrenadorCard
-                            key={s.id}
-                            s={s}
-                            onAction={handleSolicitud}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-slate-500">
-                        No hay solicitudes de entrenadores
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        Solicitudes
+                      </h2>
+                      <p className="mt-2 text-sm text-slate-500">
+                        Revisa y responde solicitudes pendientes de entrenadores
+                        y deportistas.
                       </p>
-                    )}
+                    </div>
+                    <span className="rounded-full bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700">
+                      {totalSolicitudes} pendientes
+                    </span>
                   </div>
-
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">
-                      Solicitudes de deportistas
-                    </h3>
-
-                    {solicitudesDeportistas.length > 0 ? (
-                      <div className="space-y-4">
-                        {solicitudesDeportistas.map((s) => (
-                          <SolicitudDeportistaCard
-                            key={s.id}
-                            s={s}
-                            onAction={handleSolicitud}
-                          />
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-slate-500">
-                        No hay solicitudes de deportistas
-                      </p>
-                    )}
+                  <div className="grid gap-6 lg:grid-cols-2">
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                        Entrenadores
+                      </h3>
+                      {solicitudesEntrenadores.length > 0 ? (
+                        <div className="space-y-4">
+                          {solicitudesEntrenadores.map((s) => (
+                            <SolicitudEntrenadorCard
+                              key={s.id}
+                              s={s}
+                              onAction={handleSolicitud}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500">
+                          No hay solicitudes de entrenadores.
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                      <h3 className="text-lg font-semibold text-slate-900 mb-4">
+                        Deportistas
+                      </h3>
+                      {solicitudesDeportistas.length > 0 ? (
+                        <div className="space-y-4">
+                          {solicitudesDeportistas.map((s) => (
+                            <SolicitudDeportistaCard
+                              key={s.id}
+                              s={s}
+                              onAction={handleSolicitud}
+                            />
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-slate-500">
+                          No hay solicitudes de deportistas.
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {activeSection === "Personalización" && (
-                <div className="space-y-4">
-                  {/* ✅ PREVIEW LOGO */}
-                  {form.logoUrl && (
-                    <img src={form.logoUrl} className="w-16 h-16 rounded-xl" />
-                  )}
-
-                  {/* ✅ PREVIEW BANNER */}
-                  {form.bannerUrl && (
-                    <img
-                      src={form.bannerUrl}
-                      className="w-full h-32 object-cover rounded-lg"
-                    />
-                  )}
-
-                  <input
-                    name="descripcion"
-                    value={form.descripcion}
-                    onChange={handleChange}
-                    placeholder="Descripción del club"
-                    className="w-full border rounded-lg px-4 py-2"
-                  />
-
-                  <input
-                    name="logoUrl"
-                    value={form.logoUrl}
-                    onChange={handleChange}
-                    placeholder="URL del logo"
-                    className="w-full border rounded-lg px-4 py-2"
-                  />
-
-                  <input
-                    name="bannerUrl"
-                    value={form.bannerUrl}
-                    onChange={handleChange}
-                    placeholder="URL del banner"
-                    className="w-full border rounded-lg px-4 py-2"
-                  />
-
-                  <div className="flex gap-4">
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        name="colorPrimario"
-                        value={form.colorPrimario}
-                        onChange={handleChange}
-                        className="w-12 h-10 rounded-lg border cursor-pointer"
-                      />
-                      <span className="text-sm">{form.colorPrimario}</span>
-                    </div>
-
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="color"
-                        name="colorSecundario"
-                        value={form.colorSecundario}
-                        onChange={handleChange}
-                        className="w-12 h-10 rounded-lg border cursor-pointer"
-                      />
-                      <span className="text-sm">{form.colorSecundario}</span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={handleSave}
-                    className="bg-blue-600 text-white px-4 py-2 rounded-lg"
-                  >
-                    Guardar personalización
-                  </button>
-                </div>
-              )}
-              {activeSection === "Información del club" && (
-                <div className="space-y-3">
-                  <p className="text-slate-500 text-sm uppercase tracking-wide">
-                    Descripción
+              {activeSection === "Invitar" && (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600">
+                  <p className="text-lg font-semibold text-slate-900">
+                    Invitar miembros
                   </p>
-
-                  <div className="rounded-xl bg-slate-50 p-4 text-slate-700">
-                    {panelData?.descripcion
-                      ? panelData.descripcion
-                      : "No hay descripción registrada"}
-                  </div>
-
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Contacto</p>
-                      <p className="font-medium">
-                        {panelData?.contacto || "-"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Estado</p>
-                      <p className="font-medium capitalize">
-                        {panelData?.estado || "-"}
-                      </p>
-                    </div>
-
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Ciudad</p>
-                      <p className="font-medium">{panelData?.ciudad || "-"}</p>
-                    </div>
-
-                    <div className="rounded-lg bg-slate-50 p-3">
-                      <p className="text-xs text-slate-400">Creado</p>
-                      <p className="font-medium">
-                        {formatDate(
-                          panelData?.created_at || panelData?.createdAt,
-                        )}
-                      </p>
-                    </div>
-                  </div>
+                  <p className="mt-3 text-sm">
+                    Aquí podrás enviar invitaciones al equipo y compartir el
+                    enlace del club.
+                  </p>
                 </div>
               )}
-              {/* ✅ DEFAULT SOLO PARA OTRAS */}
-              {activeSection !== "Información del club" &&
-                activeSection !== "Personalización" &&
-                activeSection !== "Entrenadores" &&
-                activeSection !== "Deportistas" &&
-                activeSection !== "Invitar" &&
-                activeSection !== "Solicitudes" && <></>}
-            </div>
+
+              {activeSection === "Analítica" && (
+                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600">
+                  <p className="text-lg font-semibold text-slate-900">
+                    Analítica
+                  </p>
+                  <p className="mt-3 text-sm">
+                    En esta sección encontrarás datos clave de rendimiento del
+                    club.
+                  </p>
+                </div>
+              )}
+            </section>
           </main>
         </div>
       </div>
