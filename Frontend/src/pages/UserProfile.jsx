@@ -63,13 +63,23 @@ export default function UserProfile() {
         });
         setLoading(false);
       } catch (err) {
-        setError(err.message);
+        const message = err.message || "Error al obtener perfil";
+        if (
+          message.includes("Token inválido") ||
+          message.includes("Usuario no encontrado") ||
+          message.includes("No autorizado")
+        ) {
+          localStorage.clear();
+          navigate("/login");
+          return;
+        }
+        setError(message);
         setLoading(false);
       }
     };
 
     fetchUserData();
-  }, []);
+  }, [navigate]);
 
   const getInitials = (name) => {
     if (!name) return "?";
@@ -125,10 +135,14 @@ export default function UserProfile() {
         photoUrl: editedUser.photoUrl || null,
       };
 
-      await apiRequest("/usuarios/perfil", {
+      const response = await apiRequest("/usuarios/perfil", {
         method: "PUT",
         body: JSON.stringify(updatedData),
       });
+
+      if (response?.token) {
+        localStorage.setItem("token", response.token);
+      }
 
       const perfilActualizado = await apiRequest("/usuarios/perfil");
 
@@ -151,7 +165,17 @@ export default function UserProfile() {
 
       setIsModalOpen(false);
     } catch (err) {
-      setError(err.message || "No se pudo actualizar");
+      const message = err.message || "No se pudo actualizar";
+      if (
+        message.includes("Token inválido") ||
+        message.includes("Usuario no encontrado") ||
+        message.includes("No autorizado")
+      ) {
+        localStorage.clear();
+        navigate("/login");
+        return;
+      }
+      setError(message);
     } finally {
       setSaving(false);
     }

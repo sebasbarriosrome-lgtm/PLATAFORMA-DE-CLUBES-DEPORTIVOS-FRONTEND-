@@ -1506,12 +1506,7 @@ export default function PanelClub() {
                 activeSection !== "Entrenadores" &&
                 activeSection !== "Deportistas" &&
                 activeSection !== "Invitar" &&
-                activeSection !== "Solicitudes" && (
-                  <p className="text-slate-500">
-                    Aquí se mostrará la información de esta sección cuando
-                    conectes backend.
-                  </p>
-                )}
+                activeSection !== "Solicitudes" && <></>}
             </div>
           </main>
         </div>
