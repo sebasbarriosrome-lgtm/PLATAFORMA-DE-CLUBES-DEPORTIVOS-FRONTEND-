@@ -10,6 +10,9 @@ export default function VistaClub() {
   const [club, setClub] = useState(null);
   const [loading, setLoading] = useState(true);
   const [horarios, setHorarios] = useState([]);
+  const [groups, setGroups] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [filtro, setFiltro] = useState("");
 
   // SOLICITUD
   const [showModal, setShowModal] = useState(false);
@@ -55,7 +58,15 @@ export default function VistaClub() {
         } catch (e) {}
 
         const horariosData = await apiRequest(`/clubs/horarios/slug/${slug}`);
+        console.log("VistaClub horarios ->", horariosData);
         setHorarios(horariosData);
+        // extraer grupos / categorías si vienen en la respuesta del club
+        const grupos = Array.isArray(data?.grupos) ? data.grupos : [];
+        setGroups(
+          grupos.map((g) => ({ id: g.id, nombre: g.nombre, categoria: g.categoria })),
+        );
+        const cats = Array.from(new Set(grupos.map((g) => g.categoria).filter(Boolean)));
+        setCategories(cats);
       } catch (err) {
         console.error(err);
       } finally {
@@ -221,35 +232,65 @@ export default function VistaClub() {
               <h2 className="text-lg font-semibold mb-3">
                 Horarios de entrenamiento
               </h2>
+              <div className="flex gap-3 items-center mb-4">
+                <label className="text-sm text-slate-600">Filtrar:</label>
+                <select
+                  value={filtro}
+                  onChange={(e) => setFiltro(e.target.value)}
+                  className="rounded-lg border px-3 py-2"
+                >
+                  <option value="">Todos</option>
+                  {groups.map((g) => (
+                    <option key={`g-${g.id}`} value={`group:${g.id}`}>
+                      {g.nombre}
+                    </option>
+                  ))}
+                  {categories.map((c) => (
+                    <option key={`c-${c}`} value={`category:${c}`}>
+                      {`Categoría: ${c}`}
+                    </option>
+                  ))}
+                </select>
+              </div>
               {horarios.length > 0 ? (
                 <div className="space-y-4">
-                  {horarios.map((horario) => (
-                    <div
-                      key={horario.id}
-                      className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200"
-                    >
-                      <div className="flex flex-wrap gap-3 items-center justify-between">
-                        <div>
-                          <p className="text-sm text-slate-500">
-                            {horario.dia}
-                          </p>
-                          <p className="font-semibold text-slate-900">
-                            {horario.horaInicio} - {horario.horaFin}
-                          </p>
+                  {horarios
+                    .filter((h) => {
+                      if (!filtro) return true;
+                      if (filtro.startsWith("group:")) {
+                        const id = filtro.split(":")[1];
+                        return String(h.grupoId) === String(id);
+                      }
+                      if (filtro.startsWith("category:")) {
+                        const cat = filtro.split(":")[1];
+                        return String(h.categoria) === String(cat);
+                      }
+                      return true;
+                    })
+                    .map((horario) => (
+                      <div
+                        key={horario.id}
+                        className="rounded-2xl bg-white p-4 shadow-sm border border-slate-200"
+                      >
+                        <div className="flex flex-wrap gap-3 items-center justify-between">
+                          <div>
+                            <p className="text-sm text-slate-500">{horario.dia}</p>
+                            <p className="font-semibold text-slate-900">
+                              {horario.horaInicio} - {horario.horaFin}
+                            </p>
+                          </div>
+                          <span className="text-xs rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
+                            {horario.estado}
+                          </span>
                         </div>
-                        <span className="text-xs rounded-full bg-emerald-100 px-3 py-1 text-emerald-700">
-                          {horario.estado}
-                        </span>
-                      </div>
 
-                      <p className="mt-3 text-slate-600">
-                        {horario.descripcion || "Sin descripción"}
-                      </p>
-                      <p className="mt-2 text-sm text-slate-500">
-                        Ubicación: {horario.ubicacion || "No especificada"}
-                      </p>
-                    </div>
-                  ))}
+                        <p className="mt-3 text-slate-600">
+                          {horario.descripcion || horario.description || horario.desc || "Sin descripción"}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-500">Ubicación: {horario.ubicacion || "No especificada"}</p>
+                        <p className="mt-2 text-sm text-slate-500">Para: {horario.grupoId ? groups.find((g) => String(g.id) === String(horario.grupoId))?.nombre || `Grupo ${horario.grupoId}` : horario.categoria ? `Categoría: ${horario.categoria}` : horario.asignadoA || "No especificado"}</p>
+                      </div>
+                    ))}
                 </div>
               ) : (
                 <p className="text-slate-500">

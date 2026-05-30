@@ -2,6 +2,27 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../services/api";
 
+const getUserFullName = (profile) => {
+  if (!profile) return "";
+  if (profile.name) return profile.name;
+  return `${profile.nombre || ""} ${profile.apellido || ""}`.trim();
+};
+
+const getFirstNameFromProfile = (profile) => {
+  const fullName = getUserFullName(profile);
+  return fullName.split(" ")[0] || "";
+};
+
+const getLastNameFromProfile = (profile) => {
+  const fullName = getUserFullName(profile);
+  return fullName.split(" ").slice(1).join(" ") || "";
+};
+
+const getProfileValue = (profile, ...keys) => {
+  if (!profile) return "";
+  return keys.reduce((value, key) => value || profile[key] || "", "");
+};
+
 export default function UserProfile() {
   const navigate = useNavigate();
   const [user, setUser] = useState(null);
@@ -52,14 +73,14 @@ export default function UserProfile() {
         const data = await apiRequest("/usuarios/perfil");
         setUser(data);
         setEditedUser({
-          firstName: data.name ? data.name.split(" ")[0] : "",
-          lastName: data.name ? data.name.split(" ").slice(1).join(" ") : "",
-          email: data.email || "",
-          telefono: data.telefono || "",
+          firstName: getFirstNameFromProfile(data),
+          lastName: getLastNameFromProfile(data),
+          email: getProfileValue(data, "email", "correo"),
+          telefono: getProfileValue(data, "telefono", "phone"),
           birthDate: data.birthDate
             ? new Date(data.birthDate).toISOString().split("T")[0]
             : "",
-          photoUrl: data.photoUrl || "",
+          photoUrl: getProfileValue(data, "photoUrl", "fotoUrl"),
         });
         setLoading(false);
       } catch (err) {
@@ -105,14 +126,14 @@ export default function UserProfile() {
   const handleCloseModal = () => {
     setIsModalOpen(false);
     setEditedUser({
-      firstName: user?.name ? user.name.split(" ")[0] : "",
-      lastName: user?.name ? user.name.split(" ").slice(1).join(" ") : "",
-      email: user?.email || "",
-      telefono: user?.telefono || "",
+      firstName: getFirstNameFromProfile(user),
+      lastName: getLastNameFromProfile(user),
+      email: getProfileValue(user, "email", "correo"),
+      telefono: getProfileValue(user, "telefono", "phone"),
       birthDate: user?.birthDate
         ? new Date(user.birthDate).toISOString().split("T")[0]
         : "",
-      photoUrl: user?.photoUrl || "",
+      photoUrl: getProfileValue(user, "photoUrl", "fotoUrl"),
     });
   };
 
@@ -126,13 +147,19 @@ export default function UserProfile() {
       setSaving(true);
       setError(null);
 
+      // Helper para convertir strings vacíos a null
+      const toNullIfEmpty = (value) => {
+        const trimmed = value?.trim();
+        return trimmed && trimmed.length > 0 ? trimmed : null;
+      };
+
       const updatedData = {
-        name: editedUser.firstName,
-        apellido: editedUser.lastName,
-        email: editedUser.email,
-        telefono: editedUser.telefono || null,
-        birthDate: editedUser.birthDate || null,
-        photoUrl: editedUser.photoUrl || null,
+        name: toNullIfEmpty(editedUser.firstName) || "",
+        apellido: toNullIfEmpty(editedUser.lastName) || "",
+        email: toNullIfEmpty(editedUser.email) || "",
+        telefono: toNullIfEmpty(editedUser.telefono),
+        birthDate: toNullIfEmpty(editedUser.birthDate),
+        photoUrl: toNullIfEmpty(editedUser.photoUrl),
       };
 
       const response = await apiRequest("/usuarios/perfil", {

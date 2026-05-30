@@ -19,6 +19,7 @@ const initialHorarioForm = {
   horaFin: "",
   ubicacion: "",
   descripcion: "",
+  asignadoA: "",
 };
 
 const initialSessionForm = {
@@ -33,6 +34,16 @@ const initialMetricForm = {
   actividad: "",
   valor: "",
   comentario: "",
+};
+
+const DIA_NOMBRES = {
+  1: "Lunes",
+  2: "Martes",
+  3: "Miércoles",
+  4: "Jueves",
+  5: "Viernes",
+  6: "Sábado",
+  7: "Domingo",
 };
 
 export default function PanelEntrenador() {
@@ -110,6 +121,7 @@ export default function PanelEntrenador() {
     setHorariosLoading(true);
     try {
       const datos = await clubsService.getHorariosClub();
+      console.log("PanelEntrenador cargarHorarios ->", datos);
       setHorarios(datos);
     } catch (err) {
       console.error("Error cargando horarios", err);
@@ -117,6 +129,11 @@ export default function PanelEntrenador() {
       setHorariosLoading(false);
     }
   };
+
+  // categorías derivadas de los grupos asignados
+  const categorias = Array.from(
+    new Set(groups.map((g) => g.categoria).filter(Boolean)),
+  );
 
   const handleHorarioChange = (e) => {
     setHorarioForm({
@@ -131,21 +148,78 @@ export default function PanelEntrenador() {
   };
 
   const handleHorarioSave = async () => {
-    if (!horarioForm.dia || !horarioForm.horaInicio || !horarioForm.horaFin) {
+    // DEBUG: inspeccionar valores actuales del formulario
+    console.log("handleHorarioSave - horarioForm (raw):", horarioForm);
+    // trim values to avoid whitespace-only inputs
+    let diaVal = horarioForm.dia ? String(horarioForm.dia).trim() : "";
+    let inicioVal = horarioForm.horaInicio
+      ? String(horarioForm.horaInicio).trim()
+      : "";
+    let finVal = horarioForm.horaFin ? String(horarioForm.horaFin).trim() : "";
+    console.log("handleHorarioSave - valores recortados:", {
+      diaVal,
+      inicioVal,
+      finVal,
+    });
+
+    // Fallback: si el estado React no se actualizó por alguna razón, leer directamente del DOM
+    if (!diaVal || !inicioVal || !finVal) {
+      const domDia = document.querySelector('select[name="dia"]')?.value || "";
+      const domInicio =
+        document.querySelector('input[name="horaInicio"]')?.value || "";
+      const domFin =
+        document.querySelector('input[name="horaFin"]')?.value || "";
+      console.log("handleHorarioSave - DOM fallback:", {
+        domDia,
+        domInicio,
+        domFin,
+      });
+      if (!diaVal && domDia) diaVal = String(domDia).trim();
+      if (!inicioVal && domInicio) inicioVal = String(domInicio).trim();
+      if (!finVal && domFin) finVal = String(domFin).trim();
+      console.log("handleHorarioSave - after fallback:", {
+        diaVal,
+        inicioVal,
+        finVal,
+      });
+    }
+
+    if (!diaVal || !inicioVal || !finVal) {
       setSuccessMessage("❌ Complete día y horas para el horario");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
+
+    // si el entrenador tiene grupos o categorías, debe especificar a quién va dirigido
+    if (
+      (groups.length > 0 || categorias.length > 0) &&
+      !horarioForm.asignadoA
+    ) {
+      setSuccessMessage("❌ Selecciona el grupo o categoría destinataria");
       setTimeout(() => setSuccessMessage(""), 3000);
       return;
     }
 
     try {
       const payload = {
-        dia: horarioForm.dia,
+        // backend espera un número para dia (dia_semana)
+        dia: horarioForm.dia ? parseInt(horarioForm.dia, 10) : null,
         horaInicio: horarioForm.horaInicio,
         horaFin: horarioForm.horaFin,
         ubicacion: horarioForm.ubicacion,
         descripcion: horarioForm.descripcion,
       };
 
+      // parsear asignadoA en payload: formato 'group:<id>' o 'category:<nombre>'
+      if (horarioForm.asignadoA) {
+        if (horarioForm.asignadoA.startsWith("group:")) {
+          const id = horarioForm.asignadoA.split(":")[1];
+          payload.grupoId = id;
+        } else if (horarioForm.asignadoA.startsWith("category:")) {
+          const cat = horarioForm.asignadoA.split(":")[1];
+          payload.categoria = decodeURIComponent(cat);
+        }
+      }
       if (editingHorario) {
         await clubsService.actualizarHorario(editingHorario.id, payload);
         setSuccessMessage("✅ Horario actualizado");
@@ -167,11 +241,20 @@ export default function PanelEntrenador() {
   const handleHorarioEdit = (horario) => {
     setEditingHorario(horario);
     setHorarioForm({
-      dia: horario.dia,
+      dia:
+        horario.dia !== undefined && horario.dia !== null
+          ? String(horario.dia)
+          : horario.dia,
       horaInicio: horario.horaInicio,
       horaFin: horario.horaFin,
       ubicacion: horario.ubicacion,
-      descripcion: horario.descripcion || "",
+      descripcion:
+        horario.descripcion || horario.description || horario.desc || "",
+      asignadoA: horario.grupoId
+        ? `group:${horario.grupoId}`
+        : horario.categoria
+          ? `category:${encodeURIComponent(horario.categoria)}`
+          : horario.asignadoA || "",
     });
   };
 
@@ -288,7 +371,14 @@ export default function PanelEntrenador() {
 
           <main className="space-y-6">
             {successMessage && (
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+              <div
+                className={
+                  "rounded-3xl px-4 py-3 text-sm " +
+                  (successMessage.startsWith("❌")
+                    ? "border border-red-200 bg-red-50 text-red-700"
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-700")
+                }
+              >
                 {successMessage}
               </div>
             )}
@@ -522,8 +612,9 @@ export default function PanelEntrenador() {
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                 <p className="font-semibold text-slate-900">
-                                  {horario.dia} • {horario.horaInicio} -{" "}
-                                  {horario.horaFin}
+                                  {DIA_NOMBRES[String(horario.dia)] ||
+                                    horario.dia}{" "}
+                                  • {horario.horaInicio} - {horario.horaFin}
                                 </p>
                                 <p className="text-sm text-slate-500">
                                   {horario.ubicacion ||
@@ -548,7 +639,21 @@ export default function PanelEntrenador() {
                               </div>
                             </div>
                             <p className="mt-3 text-slate-600 text-sm">
-                              {horario.descripcion || "Sin descripción"}
+                              {horario.descripcion ||
+                                horario.description ||
+                                horario.desc ||
+                                "Sin descripción"}
+                            </p>
+                            <p className="mt-2 text-sm text-slate-500">
+                              Para:{" "}
+                              {horario.grupoId
+                                ? groups.find(
+                                    (g) =>
+                                      String(g.id) === String(horario.grupoId),
+                                  )?.nombre || `Grupo ${horario.grupoId}`
+                                : horario.categoria
+                                  ? `Categoría: ${horario.categoria}`
+                                  : horario.asignadoA || "No especificado"}
                             </p>
                           </div>
                         ))}
@@ -580,13 +685,14 @@ export default function PanelEntrenador() {
                       onChange={handleHorarioChange}
                       className="mt-2 mb-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
                     >
-                      <option>Lunes</option>
-                      <option>Martes</option>
-                      <option>Miércoles</option>
-                      <option>Jueves</option>
-                      <option>Viernes</option>
-                      <option>Sábado</option>
-                      <option>Domingo</option>
+                      <option value="">Selecciona un día</option>
+                      <option value="1">Lunes</option>
+                      <option value="2">Martes</option>
+                      <option value="3">Miércoles</option>
+                      <option value="4">Jueves</option>
+                      <option value="5">Viernes</option>
+                      <option value="6">Sábado</option>
+                      <option value="7">Domingo</option>
                     </select>
 
                     <div className="grid gap-4 sm:grid-cols-2">
@@ -638,6 +744,38 @@ export default function PanelEntrenador() {
                       rows={4}
                       className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 resize-none"
                     />
+
+                    <label className="block text-sm font-medium text-slate-700 mt-4">
+                      Destinatario
+                    </label>
+                    <select
+                      name="asignadoA"
+                      value={horarioForm.asignadoA}
+                      onChange={handleHorarioChange}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    >
+                      <option value="">
+                        {groups.length === 0 && categorias.length === 0
+                          ? "No hay grupos ni categorías"
+                          : "Selecciona grupo o categoría"}
+                      </option>
+                      {groups.map((group) => (
+                        <option
+                          key={`g-${group.id}`}
+                          value={`group:${group.id}`}
+                        >
+                          {group.nombre} (Grupo)
+                        </option>
+                      ))}
+                      {categorias.map((cat) => (
+                        <option
+                          key={`c-${cat}`}
+                          value={`category:${encodeURIComponent(cat)}`}
+                        >
+                          {`Categoría: ${cat}`}
+                        </option>
+                      ))}
+                    </select>
 
                     <button
                       onClick={handleHorarioSave}

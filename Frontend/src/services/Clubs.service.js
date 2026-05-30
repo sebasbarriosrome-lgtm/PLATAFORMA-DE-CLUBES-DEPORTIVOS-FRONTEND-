@@ -25,7 +25,6 @@ export const clubsService = {
       method: "DELETE",
     }),
 
-    
   // ✅ NUEVOS MÉTODOS 🔥🔥🔥
 
   // obtener todas las solicitudes
@@ -47,15 +46,21 @@ export const clubsService = {
       body: JSON.stringify({ accion }),
     }),
 
-  getHorariosClub: () =>
-    apiRequest("/clubs/horarios", {
+  getHorariosClub: async () => {
+    const d = await apiRequest("/clubs/horarios", {
       method: "GET",
-    }),
+    });
+    console.log("getHorariosClub ->", d);
+    return d;
+  },
 
-  getHorariosClubSlug: (slug) =>
-    apiRequest(`/clubs/horarios/slug/${slug}`, {
+  getHorariosClubSlug: async (slug) => {
+    const d = await apiRequest(`/clubs/horarios/slug/${slug}`, {
       method: "GET",
-    }),
+    });
+    console.log(`getHorariosClubSlug(${slug}) ->`, d);
+    return d;
+  },
 
   getById: (id) =>
     apiRequest(`/clubs/${id}`, {
@@ -172,5 +177,4 @@ export const clubsService = {
       method: "PUT",
       body: JSON.stringify({ entrenadorIds }),
     }),
-
 };

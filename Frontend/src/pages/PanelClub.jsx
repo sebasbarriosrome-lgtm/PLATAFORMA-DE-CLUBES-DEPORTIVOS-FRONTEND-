@@ -202,14 +202,64 @@ export default function PanelClub() {
 
   const handleEliminarEntrenador = async (id) => {
     try {
+      // Primero intentar eliminar cualquier asociación del entrenador
+      const extractId = (e) =>
+        e?.entrenadorId != null ? e.entrenadorId : e?.id;
+
+      // Quitar entrenador de categorías que lo contienen
+      const catsToUpdate = (categories || []).filter(
+        (c) =>
+          Array.isArray(c.entrenadores) &&
+          c.entrenadores.some((e) => extractId(e) === id),
+      );
+
+      for (const c of catsToUpdate) {
+        const newIds = (c.entrenadores || [])
+          .map((e) => extractId(e))
+          .filter((x) => x !== id);
+        await clubsService.assignEntrenadoresToCategory(c.id, newIds);
+      }
+
+      // Quitar entrenador de grupos que lo contienen
+      const groupsToUpdate = (groups || []).filter(
+        (g) =>
+          Array.isArray(g.entrenadores) &&
+          g.entrenadores.some((e) => extractId(e) === id),
+      );
+
+      for (const g of groupsToUpdate) {
+        const newIds = (g.entrenadores || [])
+          .map((e) => extractId(e))
+          .filter((x) => x !== id);
+        await clubsService.assignEntrenadoresToGroup(g.id, newIds);
+      }
+
+      // Ahora intentar borrar el entrenador
       await clubsService.eliminarEntrenador(id);
+
       setSuccessMessage("✅ Entrenador eliminado");
-      await fetchEntrenadoresClub();
+      // refrescar listas relevantes
+      await Promise.all([
+        fetchEntrenadoresClub(),
+        fetchCategories(),
+        fetchGroups(),
+      ]);
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error(err);
-      setSuccessMessage("❌ Error eliminando entrenador");
-      setTimeout(() => setSuccessMessage(""), 3000);
+
+      const msg = err?.message || String(err || "");
+      if (
+        /foreign key|Cannot delete or update a parent row|constraint/i.test(msg)
+      ) {
+        setSuccessMessage(
+          "❌ No se puede eliminar: hay asociaciones (categorías/grupos). Elimina esas asociaciones primero.",
+        );
+      } else {
+        setSuccessMessage("❌ Error eliminando entrenador");
+      }
+
+      setTimeout(() => setSuccessMessage(""), 5000);
     }
   };
 
@@ -333,14 +383,27 @@ export default function PanelClub() {
 
   const handleDeleteCategory = async (id) => {
     try {
+      // Quitar todas las asociaciones de entrenadores en esa categoría
+      await clubsService.assignEntrenadoresToCategory(id, []);
+
+      // Luego eliminar la categoría
       await clubsService.deleteCategory(id);
+
       setSuccessMessage("✅ Categoría eliminada");
-      await fetchCategories();
+      // refrescar categorías y entrenadores en caso de que cambien
+      await Promise.all([fetchCategories(), fetchEntrenadoresClub()]);
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error(err);
-      setSuccessMessage("❌ Error eliminando categoría");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      const msg = err?.message || String(err || "");
+      const associationPattern =
+        /foreign key|constraint|asociaci[oó]n|asociaciones|entrenador|deportista|grupo/i;
+      if (associationPattern.test(msg)) {
+        setSuccessMessage(`❌ No se puede eliminar la categoría: ${msg}`);
+      } else {
+        setSuccessMessage(`❌ Error eliminando categoría: ${msg}`);
+      }
+      setTimeout(() => setSuccessMessage(""), 5000);
     }
   };
 
@@ -401,14 +464,27 @@ export default function PanelClub() {
 
   const handleDeleteGroup = async (id) => {
     try {
+      // Quitar todas las asociaciones de entrenadores en ese grupo
+      await clubsService.assignEntrenadoresToGroup(id, []);
+
+      // Luego eliminar el grupo
       await clubsService.deleteGroup(id);
+
       setSuccessMessage("✅ Grupo eliminado");
-      await fetchGroups();
+      // refrescar grupos y entrenadores en caso de que cambien
+      await Promise.all([fetchGroups(), fetchEntrenadoresClub()]);
       setTimeout(() => setSuccessMessage(""), 3000);
     } catch (err) {
       console.error(err);
-      setSuccessMessage("❌ Error eliminando grupo");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      const msg = err?.message || String(err || "");
+      const associationPattern =
+        /foreign key|constraint|asociaci[oó]n|asociaciones|entrenador|deportista|categoria/i;
+      if (associationPattern.test(msg)) {
+        setSuccessMessage(`❌ No se puede eliminar el grupo: ${msg}`);
+      } else {
+        setSuccessMessage(`❌ Error eliminando grupo: ${msg}`);
+      }
+      setTimeout(() => setSuccessMessage(""), 5000);
     }
   };
 
@@ -655,7 +731,7 @@ export default function PanelClub() {
                     </p>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+                  <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
                     <div className="rounded-3xl bg-slate-50 p-4">
                       <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
                         Contacto
@@ -680,14 +756,6 @@ export default function PanelClub() {
                       </p>
                       <p className="mt-2 font-medium text-slate-900">
                         {panelData?.adminNombre || "-"}
-                      </p>
-                    </div>
-                    <div className="rounded-3xl bg-slate-50 p-4">
-                      <p className="text-xs uppercase tracking-[0.3em] text-slate-400">
-                        Email
-                      </p>
-                      <p className="mt-2 font-medium text-slate-900">
-                        {panelData?.adminEmail || panelData?.adminCorreo || "-"}
                       </p>
                     </div>
                   </div>
