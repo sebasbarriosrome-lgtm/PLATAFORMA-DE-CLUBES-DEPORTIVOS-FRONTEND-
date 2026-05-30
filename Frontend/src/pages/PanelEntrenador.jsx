@@ -46,6 +46,28 @@ const DIA_NOMBRES = {
   7: "Domingo",
 };
 
+// Map from numeric values in select dropdown to enum values expected by backend
+const DIA_ENUM_MAP = {
+  1: "lunes",
+  2: "martes",
+  3: "miercoles",
+  4: "jueves",
+  5: "viernes",
+  6: "sabado",
+  7: "domingo",
+};
+
+// Reverse map: from backend enum strings to numeric values for the select
+const ENUM_DIA_MAP = {
+  lunes: "1",
+  martes: "2",
+  miercoles: "3",
+  jueves: "4",
+  viernes: "5",
+  sabado: "6",
+  domingo: "7",
+};
+
 export default function PanelEntrenador() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("Mis grupos");
@@ -117,14 +139,22 @@ export default function PanelEntrenador() {
     fetchCoachPanel();
   }, []);
 
+  // ✅ NUEVO: Cargar horarios cuando se abre la sección
+  useEffect(() => {
+    if (activeSection === "Horarios") {
+      cargarHorarios();
+    }
+  }, [activeSection]);
+
   const cargarHorarios = async () => {
     setHorariosLoading(true);
     try {
       const datos = await clubsService.getHorariosClub();
       console.log("PanelEntrenador cargarHorarios ->", datos);
-      setHorarios(datos);
+      setHorarios(datos || []);
     } catch (err) {
       console.error("Error cargando horarios", err);
+      setHorarios([]);
     } finally {
       setHorariosLoading(false);
     }
@@ -202,8 +232,8 @@ export default function PanelEntrenador() {
 
     try {
       const payload = {
-        // backend espera un número para dia (dia_semana)
-        dia: horarioForm.dia ? parseInt(horarioForm.dia, 10) : null,
+        // Map numeric day value (1-7) to backend enum string (lunes, martes, etc.)
+        dia: horarioForm.dia ? DIA_ENUM_MAP[String(horarioForm.dia)] : null,
         horaInicio: horarioForm.horaInicio,
         horaFin: horarioForm.horaFin,
         ubicacion: horarioForm.ubicacion,
@@ -240,11 +270,16 @@ export default function PanelEntrenador() {
 
   const handleHorarioEdit = (horario) => {
     setEditingHorario(horario);
+
+    // Convert backend day string (lunes, martes, etc.) to numeric value (1-7) for select
+    let diaValue = horario.dia;
+    if (typeof horario.dia === "string") {
+      const lowerDia = horario.dia.toLowerCase();
+      diaValue = ENUM_DIA_MAP[lowerDia] || horario.dia;
+    }
+
     setHorarioForm({
-      dia:
-        horario.dia !== undefined && horario.dia !== null
-          ? String(horario.dia)
-          : horario.dia,
+      dia: diaValue !== undefined && diaValue !== null ? String(diaValue) : "",
       horaInicio: horario.horaInicio,
       horaFin: horario.horaFin,
       ubicacion: horario.ubicacion,
@@ -260,12 +295,15 @@ export default function PanelEntrenador() {
 
   const handleHorarioDelete = async (id) => {
     try {
-      await clubsService.eliminarHorario(id);
+      console.log("🗑️ Eliminando horario:", id);
+      const result = await clubsService.eliminarHorario(id);
+      console.log("🗑️ Resultado delete:", result);
       setSuccessMessage("✅ Horario eliminado");
+      // Recargar horarios después de eliminar
       await cargarHorarios();
     } catch (err) {
-      console.error(err);
-      setSuccessMessage("❌ Error eliminando horario");
+      console.error("❌ Error eliminando horario:", err);
+      setSuccessMessage("❌ Error eliminando horario: " + err.message);
     } finally {
       setTimeout(() => setSuccessMessage(""), 3000);
     }
@@ -612,8 +650,17 @@ export default function PanelEntrenador() {
                             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                               <div>
                                 <p className="font-semibold text-slate-900">
-                                  {DIA_NOMBRES[String(horario.dia)] ||
-                                    horario.dia}{" "}
+                                  {(() => {
+                                    // Convert backend day string to display name
+                                    let dayNum = horario.dia;
+                                    if (typeof horario.dia === "string") {
+                                      const lowerDia =
+                                        horario.dia.toLowerCase();
+                                      dayNum =
+                                        ENUM_DIA_MAP[lowerDia] || horario.dia;
+                                    }
+                                    return DIA_NOMBRES[dayNum] || horario.dia;
+                                  })()}{" "}
                                   • {horario.horaInicio} - {horario.horaFin}
                                 </p>
                                 <p className="text-sm text-slate-500">
