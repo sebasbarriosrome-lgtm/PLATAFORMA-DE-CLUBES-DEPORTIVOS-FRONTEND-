@@ -63,9 +63,15 @@ export default function VistaClub() {
         // extraer grupos / categorías si vienen en la respuesta del club
         const grupos = Array.isArray(data?.grupos) ? data.grupos : [];
         setGroups(
-          grupos.map((g) => ({ id: g.id, nombre: g.nombre, categoria: g.categoria })),
+          grupos.map((g) => ({
+            id: g.id,
+            nombre: g.nombre,
+            categoria: g.categoria,
+          })),
         );
-        const cats = Array.from(new Set(grupos.map((g) => g.categoria).filter(Boolean)));
+        const cats = Array.from(
+          new Set(grupos.map((g) => g.categoria).filter(Boolean)),
+        );
         setCategories(cats);
       } catch (err) {
         console.error(err);
@@ -274,7 +280,9 @@ export default function VistaClub() {
                       >
                         <div className="flex flex-wrap gap-3 items-center justify-between">
                           <div>
-                            <p className="text-sm text-slate-500">{horario.dia}</p>
+                            <p className="text-sm text-slate-500">
+                              {horario.dia}
+                            </p>
                             <p className="font-semibold text-slate-900">
                               {horario.horaInicio} - {horario.horaFin}
                             </p>
@@ -285,10 +293,22 @@ export default function VistaClub() {
                         </div>
 
                         <p className="mt-3 text-slate-600">
-                          {horario.descripcion || horario.description || horario.desc || "Sin descripción"}
+                          {horario.descripcion ||
+                            horario.description ||
+                            horario.desc ||
+                            "Sin descripción"}
                         </p>
-                        <p className="mt-2 text-sm text-slate-500">Ubicación: {horario.ubicacion || "No especificada"}</p>
-                        <p className="mt-2 text-sm text-slate-500">Para: {horario.grupoId ? groups.find((g) => String(g.id) === String(horario.grupoId))?.nombre || `Grupo ${horario.grupoId}` : horario.categoria ? `Categoría: ${horario.categoria}` : horario.asignadoA || "No especificado"}</p>
+                        <p className="mt-2 text-sm text-slate-500">
+                          Ubicación: {horario.ubicacion || "No especificada"}
+                        </p>
+                        <p className="mt-2 text-sm text-slate-500">
+                          Para:{" "}
+                          {horario.grupoNombre
+                            ? horario.grupoNombre
+                            : horario.categoria
+                              ? `Categoría: ${horario.categoria}`
+                              : "No especificado"}
+                        </p>
                       </div>
                     ))}
                 </div>

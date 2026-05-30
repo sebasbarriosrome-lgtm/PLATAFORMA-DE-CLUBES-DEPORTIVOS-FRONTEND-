@@ -5,6 +5,7 @@ import { apiRequest } from "../services/api";
 
 const sections = [
   { name: "Mis grupos", icon: "👥" },
+  { name: "Categorías", icon: "🏷️" },
   { name: "Sesiones", icon: "📅" },
   { name: "Asistencia", icon: "✅" },
   { name: "Actividades", icon: "⚙️" },
@@ -77,6 +78,7 @@ export default function PanelEntrenador() {
   const [editingHorario, setEditingHorario] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [groups, setGroups] = useState([]);
+  const [categorias, setCategorias] = useState([]);
   const [sessions, setSessions] = useState([]);
   const [activities, setActivities] = useState([]);
   const [attendance, setAttendance] = useState([]);
@@ -100,6 +102,11 @@ export default function PanelEntrenador() {
             deportistas: (g.deportistas || []).map((d) => d.nombre),
           })),
         );
+
+        const categoriasAsignadas = Array.isArray(data?.categorias)
+          ? data.categorias.map((c) => c?.nombre).filter(Boolean)
+          : [];
+        setCategorias(categoriasAsignadas);
 
         const sesiones = [];
         const horariosAgg = [];
@@ -148,9 +155,12 @@ export default function PanelEntrenador() {
 
   const cargarHorarios = async () => {
     setHorariosLoading(true);
+
     try {
-      const datos = await clubsService.getHorariosClub();
-      console.log("PanelEntrenador cargarHorarios ->", datos);
+      const datos = await clubsService.getHorariosClub(); // ✅ SIN NADA
+
+      console.log("Horarios obtenidos:", datos);
+
       setHorarios(datos || []);
     } catch (err) {
       console.error("Error cargando horarios", err);
@@ -160,10 +170,10 @@ export default function PanelEntrenador() {
     }
   };
 
-  // categorías derivadas de los grupos asignados
-  const categorias = Array.from(
-    new Set(groups.map((g) => g.categoria).filter(Boolean)),
-  );
+  const categoriaOptions =
+    categorias.length > 0
+      ? categorias
+      : Array.from(new Set(groups.map((g) => g.categoria).filter(Boolean)));
 
   const handleHorarioChange = (e) => {
     setHorarioForm({
@@ -222,7 +232,7 @@ export default function PanelEntrenador() {
 
     // si el entrenador tiene grupos o categorías, debe especificar a quién va dirigido
     if (
-      (groups.length > 0 || categorias.length > 0) &&
+      (groups.length > 0 || categoriaOptions.length > 0) &&
       !horarioForm.asignadoA
     ) {
       setSuccessMessage("❌ Selecciona el grupo o categoría destinataria");
@@ -451,6 +461,89 @@ export default function PanelEntrenador() {
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {activeSection === "Categorías" && (
+              <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Categorías
+                </h2>
+                <p className="mt-2 text-slate-500">
+                  Revisa las categorías asignadas y los grupos asociados.
+                </p>
+
+                <div className="mt-6 space-y-6">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Categorías asignadas
+                    </h3>
+                    {categoriaOptions.length === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        No tienes categorías asignadas actualmente.
+                      </p>
+                    ) : (
+                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {categoriaOptions.map((categoria) => (
+                          <div
+                            key={categoria}
+                            className="rounded-3xl border border-slate-200 bg-white p-4"
+                          >
+                            <p className="font-semibold text-slate-900">
+                              {categoria}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Grupos por categoría
+                    </h3>
+                    {groups.length === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        No hay grupos registrados para mostrar.
+                      </p>
+                    ) : (
+                      <div className="mt-4 space-y-4">
+                        {Array.from(
+                          new Map(
+                            groups
+                              .filter((g) => g.categoria)
+                              .map((group) => [group.categoria, group]),
+                          ).entries(),
+                        ).map(([categoria, _]) => (
+                          <div key={categoria}>
+                            <p className="font-semibold text-slate-900">
+                              {categoria}
+                            </p>
+                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                              {groups
+                                .filter(
+                                  (group) => group.categoria === categoria,
+                                )
+                                .map((group) => (
+                                  <div
+                                    key={group.id}
+                                    className="rounded-2xl border border-slate-200 bg-white p-4"
+                                  >
+                                    <p className="font-semibold text-slate-900">
+                                      {group.nombre}
+                                    </p>
+                                    <p className="text-sm text-slate-500 mt-2">
+                                      Deportistas: {group.deportistas.length}
+                                    </p>
+                                  </div>
+                                ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
             )}
@@ -802,7 +895,7 @@ export default function PanelEntrenador() {
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
                     >
                       <option value="">
-                        {groups.length === 0 && categorias.length === 0
+                        {groups.length === 0 && categoriaOptions.length === 0
                           ? "No hay grupos ni categorías"
                           : "Selecciona grupo o categoría"}
                       </option>
@@ -814,7 +907,7 @@ export default function PanelEntrenador() {
                           {group.nombre} (Grupo)
                         </option>
                       ))}
-                      {categorias.map((cat) => (
+                      {categoriaOptions.map((cat) => (
                         <option
                           key={`c-${cat}`}
                           value={`category:${encodeURIComponent(cat)}`}

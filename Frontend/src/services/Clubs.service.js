@@ -47,11 +47,9 @@ export const clubsService = {
     }),
 
   getHorariosClub: async () => {
-    const d = await apiRequest("/clubs/horarios", {
+    return await apiRequest(`/clubs/horarios`, {
       method: "GET",
     });
-    console.log("getHorariosClub ->", d);
-    return d;
   },
 
   getHorariosClubSlug: async (slug) => {

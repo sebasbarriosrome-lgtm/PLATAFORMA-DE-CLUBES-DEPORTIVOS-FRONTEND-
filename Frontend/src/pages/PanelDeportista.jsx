@@ -6,7 +6,6 @@ export default function PanelDeportista() {
   const [userData, setUserData] = useState(null);
 
   useEffect(() => {
-    // placeholder: la data real vendrá del backend en integración futura
     setUserData({ nombre: "Deportista Ejemplo" });
   }, []);
 
