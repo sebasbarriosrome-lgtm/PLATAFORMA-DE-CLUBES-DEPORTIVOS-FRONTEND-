@@ -75,6 +75,18 @@ export const clubsService = {
       method: "GET",
     }),
 
+  assignDeportistaToGroup: (deportistaId, grupoId) =>
+    apiRequest(`/clubs/deportistas/${deportistaId}/grupo`, {
+      method: "PUT",
+      body: JSON.stringify({ grupoId }),
+    }),
+
+  assignDeportistaToCategory: (deportistaId, categoriaId) =>
+    apiRequest(`/clubs/deportistas/${deportistaId}/categoria`, {
+      method: "PUT",
+      body: JSON.stringify({ categoriaId }),
+    }),
+
   eliminarEntrenador: (id) =>
     apiRequest(`/clubs/entrenadores/${id}`, {
       method: "DELETE",
@@ -175,4 +187,15 @@ export const clubsService = {
       method: "PUT",
       body: JSON.stringify({ entrenadorIds }),
     }),
+
+  crearInvitacion: (data) =>
+    apiRequest("/clubs/invitaciones", {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  getInvitaciones: () => apiRequest("/clubs/invitaciones", { method: "GET" }),
+
+  getInvitacionesBySlug: (slug) =>
+    apiRequest(`/clubs/invitaciones/slug/${slug}`, { method: "GET" }),
 };

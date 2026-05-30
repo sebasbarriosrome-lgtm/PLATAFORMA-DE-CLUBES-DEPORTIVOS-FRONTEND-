@@ -29,6 +29,144 @@ const sections = [
   { name: "Solicitudes", icon: "📥" },
 ];
 
+function InvitarSection({ onSuccess }) {
+  const [invitaciones, setInvitaciones] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [form, setForm] = useState({ email: "", rol: "deportista" });
+
+  useEffect(() => {
+    cargar();
+  }, []);
+
+  const cargar = async () => {
+    setLoading(true);
+    try {
+      const data = await clubsService.getInvitaciones();
+      setInvitaciones(Array.isArray(data) ? data : []);
+    } catch {
+      setInvitaciones([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEnviar = async () => {
+    if (!form.email || !form.rol) {
+      onSuccess("❌ Email y rol son requeridos");
+      return;
+    }
+    try {
+      await clubsService.crearInvitacion(form);
+      onSuccess("✅ Invitación enviada");
+      setForm({ email: "", rol: "deportista" });
+      await cargar();
+    } catch (e) {
+      onSuccess("❌ " + (e.message || "Error enviando invitación"));
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-semibold text-slate-900">
+          Invitar miembros
+        </h2>
+        <p className="mt-2 text-sm text-slate-500">
+          Invita usuarios registrados al club por su email.
+        </p>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+        <h3 className="font-semibold text-slate-900 mb-4">Nueva invitación</h3>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Email del usuario
+            </label>
+            <input
+              value={form.email}
+              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              placeholder="usuario@email.com"
+              className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-700">
+              Rol
+            </label>
+            <select
+              value={form.rol}
+              onChange={(e) => setForm({ ...form, rol: e.target.value })}
+              className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+            >
+              <option value="deportista">Deportista</option>
+              <option value="entrenador">Entrenador</option>
+            </select>
+          </div>
+        </div>
+        <button
+          onClick={handleEnviar}
+          className="mt-4 rounded-xl bg-blue-600 px-6 py-3 text-white hover:bg-blue-700"
+        >
+          Enviar invitación
+        </button>
+      </div>
+
+      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+        <h3 className="font-semibold text-slate-900 mb-4">
+          Invitaciones enviadas
+        </h3>
+        {loading ? (
+          <p className="text-slate-500">Cargando...</p>
+        ) : invitaciones.length === 0 ? (
+          <p className="text-slate-500">No hay invitaciones enviadas.</p>
+        ) : (
+          <table className="min-w-full text-sm text-slate-700">
+            <thead className="bg-slate-100">
+              <tr>
+                <th className="px-4 py-3 text-left">Nombre</th>
+                <th className="px-4 py-3 text-left">Email</th>
+                <th className="px-4 py-3 text-left">Rol</th>
+                <th className="px-4 py-3 text-left">Estado</th>
+                <th className="px-4 py-3 text-left">Fecha</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-200">
+              {invitaciones.map((inv) => (
+                <tr key={inv.id}>
+                  <td className="px-4 py-3">
+                    {inv.nombre} {inv.apellido}
+                  </td>
+                  <td className="px-4 py-3">{inv.email}</td>
+                  <td className="px-4 py-3 capitalize">{inv.rol}</td>
+                  <td className="px-4 py-3">
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-medium ${
+                        inv.estado === "pendiente"
+                          ? "bg-yellow-100 text-yellow-700"
+                          : inv.estado === "aceptada"
+                            ? "bg-green-100 text-green-700"
+                            : "bg-red-100 text-red-700"
+                      }`}
+                    >
+                      {inv.estado}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    {inv.createdAt
+                      ? new Date(inv.createdAt).toLocaleDateString("es-ES")
+                      : "-"}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function PanelClub() {
   const [activeSection, setActiveSection] = useState("Información del club");
   const navigate = useNavigate();
@@ -1418,15 +1556,12 @@ export default function PanelClub() {
               )}
 
               {activeSection === "Invitar" && (
-                <div className="rounded-3xl border border-dashed border-slate-300 bg-slate-50 p-8 text-center text-slate-600">
-                  <p className="text-lg font-semibold text-slate-900">
-                    Invitar miembros
-                  </p>
-                  <p className="mt-3 text-sm">
-                    Aquí podrás enviar invitaciones al equipo y compartir el
-                    enlace del club.
-                  </p>
-                </div>
+                <InvitarSection
+                  onSuccess={(msg) => {
+                    setSuccessMessage(msg);
+                    setTimeout(() => setSuccessMessage(""), 3000);
+                  }}
+                />
               )}
 
               {activeSection === "Analítica" && (

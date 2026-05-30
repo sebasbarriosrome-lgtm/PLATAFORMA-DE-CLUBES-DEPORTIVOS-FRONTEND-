@@ -6,6 +6,7 @@ import { apiRequest } from "../services/api";
 const sections = [
   { name: "Mis grupos", icon: "👥" },
   { name: "Categorías", icon: "🏷️" },
+  { name: "Deportistas", icon: "🏃" },
   { name: "Sesiones", icon: "📅" },
   { name: "Asistencia", icon: "✅" },
   { name: "Actividades", icon: "⚙️" },
@@ -84,67 +85,60 @@ export default function PanelEntrenador() {
   const [activities, setActivities] = useState([]);
   const [attendance, setAttendance] = useState([]);
   const [athletes, setAthletes] = useState([]);
+  const [assignedAthletes, setAssignedAthletes] = useState([]);
+  const [assignmentForm, setAssignmentForm] = useState({
+    deportistaId: "",
+    grupoId: "",
+    categoriaId: "",
+  });
   const [metricForm, setMetricForm] = useState(initialMetricForm);
   const [performanceReports, setPerformanceReports] = useState([]);
   const [sessionForm, setSessionForm] = useState(initialSessionForm);
 
+  const loadTrainerData = async () => {
+    try {
+      const [groupsData, categoriesData, deportistasData] = await Promise.all([
+        clubsService.getGroups(),
+        clubsService.getCategories(),
+        clubsService.getDeportistas(),
+      ]);
+
+      const normalizedGroups = Array.isArray(groupsData)
+        ? groupsData.map((group) => ({
+            ...group,
+            deportistas: Array.isArray(group.deportistas)
+              ? group.deportistas.map((athlete) => ({
+                  id: athlete.deportistaId ?? athlete.id,
+                  nombre: `${athlete.nombre} ${athlete.apellido}`,
+                  ...athlete,
+                }))
+              : [],
+          }))
+        : [];
+
+      setGroups(normalizedGroups);
+      setCategorias(Array.isArray(categoriesData) ? categoriesData : []);
+
+      const athleteList = Array.isArray(deportistasData)
+        ? deportistasData.map((athlete) => ({
+            id: athlete.deportistaId,
+            nombre: `${athlete.nombre} ${athlete.apellido}`,
+            grupoId: athlete.grupoId ?? "",
+            categoriaId: athlete.categoriaId ?? "",
+          }))
+        : [];
+
+      setAthletes(athleteList);
+      setAssignedAthletes(athleteList);
+    } catch (err) {
+      console.error("No se pudo cargar datos del entrenador:", err);
+    } finally {
+      setHorariosLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchCoachPanel = async () => {
-      try {
-        const data = await apiRequest("/entrenador/panel");
-
-        const grupos = Array.isArray(data?.grupos) ? data.grupos : [];
-
-        setGroups(
-          grupos.map((g) => ({
-            id: g.id,
-            nombre: g.nombre,
-            categoria: g.categoria,
-            deportistas: (g.deportistas || []).map((d) => d.nombre),
-          })),
-        );
-
-        const categoriasAsignadas = Array.isArray(data?.categorias)
-          ? data.categorias.filter((c) => c?.id && c?.nombre)
-          : [];
-        setCategorias(categoriasAsignadas);
-
-        const sesiones = [];
-        const horariosAgg = [];
-        const atletas = [];
-
-        grupos.forEach((g) => {
-          if (Array.isArray(g.sesiones)) sesiones.push(...g.sesiones);
-          if (Array.isArray(g.horarios)) horariosAgg.push(...g.horarios);
-          if (Array.isArray(g.deportistas)) {
-            g.deportistas.forEach((d) => {
-              if (d?.id && d?.nombre) {
-                atletas.push({ id: d.id, nombre: d.nombre });
-              }
-            });
-          }
-        });
-
-        const uniqueAthletes = Array.from(
-          new Map(atletas.map((a) => [a.id, a])).values(),
-        );
-
-        setSessions(Array.isArray(data?.sesiones) ? data.sesiones : sesiones);
-        setHorarios(horariosAgg);
-        setAthletes(uniqueAthletes);
-        setActivities(Array.isArray(data?.actividades) ? data.actividades : []);
-        setAttendance(Array.isArray(data?.asistencia) ? data.asistencia : []);
-        setPerformanceReports(
-          Array.isArray(data?.rendimiento) ? data.rendimiento : [],
-        );
-      } catch (err) {
-        console.error("No se pudo cargar panel de entrenador:", err);
-      } finally {
-        setHorariosLoading(false);
-      }
-    };
-
-    fetchCoachPanel();
+    loadTrainerData();
   }, []);
 
   // ✅ NUEVO: Cargar horarios cuando se abre la sección
@@ -172,6 +166,20 @@ export default function PanelEntrenador() {
   };
 
   const categoriaOptions = categorias; // siempre objetos, nunca strings
+
+  const getCategoriaName = (categoriaIdOrName) => {
+    if (!categoriaIdOrName) return "";
+    const category = categorias.find(
+      (cat) => String(cat.id) === String(categoriaIdOrName),
+    );
+    return category?.nombre || categoriaIdOrName;
+  };
+
+  const getGroupName = (groupId) => {
+    if (!groupId) return "";
+    const group = groups.find((g) => String(g.id) === String(groupId));
+    return group?.nombre || groupId;
+  };
 
   const handleHorarioChange = (e) => {
     setHorarioForm({
@@ -322,6 +330,61 @@ export default function PanelEntrenador() {
     });
   };
 
+  const handleAssignmentChange = (e) => {
+    setAssignmentForm({
+      ...assignmentForm,
+      [e.target.name]: e.target.value,
+    });
+  };
+
+  const handleAssignAthlete = async () => {
+    if (!assignmentForm.deportistaId) {
+      setSuccessMessage("❌ Selecciona un deportista para asignar");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
+
+    const hasGroupUpdate = assignmentForm.grupoId !== "";
+    const hasCategoryUpdate = assignmentForm.categoriaId !== "";
+
+    if (!hasGroupUpdate && !hasCategoryUpdate) {
+      setSuccessMessage("❌ Selecciona un grupo o una categoría para asignar");
+      setTimeout(() => setSuccessMessage(""), 3000);
+      return;
+    }
+
+    try {
+      const actions = [];
+      if (hasGroupUpdate) {
+        actions.push(
+          clubsService.assignDeportistaToGroup(
+            assignmentForm.deportistaId,
+            assignmentForm.grupoId || null,
+          ),
+        );
+      }
+      if (hasCategoryUpdate) {
+        actions.push(
+          clubsService.assignDeportistaToCategory(
+            assignmentForm.deportistaId,
+            assignmentForm.categoriaId || null,
+          ),
+        );
+      }
+
+      await Promise.all(actions);
+      setSuccessMessage("✅ Deportista actualizado correctamente");
+      setAssignmentForm({ deportistaId: "", grupoId: "", categoriaId: "" });
+
+      await loadTrainerData();
+    } catch (err) {
+      console.error("Error asignando deportista:", err);
+      setSuccessMessage("❌ Error asignando deportista: " + err.message);
+    } finally {
+      setTimeout(() => setSuccessMessage(""), 3000);
+    }
+  };
+
   const handleMetricSubmit = () => {
     setSuccessMessage("✅ Métrica registrada");
     setMetricForm(initialMetricForm);
@@ -421,21 +484,133 @@ export default function PanelEntrenador() {
                       className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
                     >
                       <h3 className="font-semibold text-slate-900">
-                        {group.nombre}
+                        Grupo: {group.nombre}
                       </h3>
-                      <p className="text-sm text-slate-500">
-                        Categoría: {group.categoria}
-                      </p>
                       <div className="mt-4 text-sm text-slate-700">
                         <p className="font-medium">Deportistas:</p>
                         <ul className="mt-2 list-disc pl-5 space-y-1">
                           {group.deportistas.map((athlete) => (
-                            <li key={athlete}>{athlete}</li>
+                            <li key={athlete.id || athlete.nombre}>
+                              {athlete.nombre}
+                            </li>
                           ))}
                         </ul>
                       </div>
                     </div>
                   ))}
+                </div>
+              </div>
+            )}
+
+            {activeSection === "Deportistas" && (
+              <div className="bg-white rounded-3xl p-6 shadow-sm">
+                <h2 className="text-2xl font-semibold text-slate-900">
+                  Deportistas
+                </h2>
+                <p className="mt-2 text-slate-500">
+                  Asigna deportistas a un grupo o categoría desde aquí.
+                </p>
+
+                <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
+                    <h3 className="text-lg font-semibold text-slate-900">
+                      Deportistas existentes
+                    </h3>
+                    {assignedAthletes.length === 0 ? (
+                      <p className="mt-3 text-sm text-slate-500">
+                        No hay deportistas cargados.
+                      </p>
+                    ) : (
+                      <div className="mt-4 space-y-4">
+                        {assignedAthletes.map((athlete) => (
+                          <div
+                            key={athlete.id}
+                            className="rounded-2xl border border-slate-200 bg-white p-4"
+                          >
+                            <p className="font-semibold text-slate-900">
+                              {athlete.nombre}
+                            </p>
+                            <p className="text-sm text-slate-500 mt-2">
+                              Grupo:{" "}
+                              {getGroupName(athlete.grupoId) || "Sin grupo"}
+                            </p>
+                            <p className="text-sm text-slate-500">
+                              Categoría:{" "}
+                              {getCategoriaName(athlete.categoriaId) ||
+                                "Sin categoría"}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                    <h3 className="font-semibold text-slate-900 mb-4">
+                      Asignar deportista
+                    </h3>
+                    <label className="block text-sm font-medium text-slate-700">
+                      Deportista
+                    </label>
+                    <select
+                      name="deportistaId"
+                      value={assignmentForm.deportistaId}
+                      onChange={handleAssignmentChange}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    >
+                      <option value="" disabled>
+                        {athletes.length === 0
+                          ? "No hay deportistas"
+                          : "Selecciona un deportista"}
+                      </option>
+                      {athletes.map((athlete) => (
+                        <option key={athlete.id} value={athlete.id}>
+                          {athlete.nombre}
+                        </option>
+                      ))}
+                    </select>
+
+                    <label className="block text-sm font-medium text-slate-700 mt-4">
+                      Grupo
+                    </label>
+                    <select
+                      name="grupoId"
+                      value={assignmentForm.grupoId}
+                      onChange={handleAssignmentChange}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    >
+                      <option value="">No asignar a grupo</option>
+                      {groups.map((group) => (
+                        <option key={group.id} value={group.id}>
+                          {group.nombre}
+                        </option>
+                      ))}
+                    </select>
+
+                    <label className="block text-sm font-medium text-slate-700 mt-4">
+                      Categoría
+                    </label>
+                    <select
+                      name="categoriaId"
+                      value={assignmentForm.categoriaId}
+                      onChange={handleAssignmentChange}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    >
+                      <option value="">No asignar a categoría</option>
+                      {categorias.map((cat) => (
+                        <option key={cat.id} value={cat.id}>
+                          {cat.nombre}
+                        </option>
+                      ))}
+                    </select>
+
+                    <button
+                      onClick={handleAssignAthlete}
+                      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
+                    >
+                      Asignar deportista
+                    </button>
+                  </div>
                 </div>
               </div>
             )}

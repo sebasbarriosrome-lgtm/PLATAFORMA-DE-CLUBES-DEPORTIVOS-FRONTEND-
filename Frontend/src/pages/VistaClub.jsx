@@ -21,6 +21,9 @@ export default function VistaClub() {
   const [error, setError] = useState("");
   const [loadingRequest, setLoadingRequest] = useState(false);
 
+  //INVITACIONES
+  const [invitaciones, setInvitaciones] = useState([]);
+
   const [formSolicitud, setFormSolicitud] = useState({
     mensaje: "",
     peso: "",
@@ -78,6 +81,12 @@ export default function VistaClub() {
         setCategories(
           Array.from(catsMap.entries()).map(([id, nombre]) => ({ id, nombre })),
         );
+        try {
+          const invData = await apiRequest(`/clubs/invitaciones/slug/${slug}`);
+          setInvitaciones(Array.isArray(invData) ? invData : []);
+        } catch {
+          setInvitaciones([]);
+        }
       } catch (err) {
         console.error(err);
       } finally {
