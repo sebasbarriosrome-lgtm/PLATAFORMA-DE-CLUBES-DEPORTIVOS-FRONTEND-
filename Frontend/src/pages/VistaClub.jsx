@@ -69,10 +69,15 @@ export default function VistaClub() {
             categoria: g.categoria,
           })),
         );
-        const cats = Array.from(
-          new Set(grupos.map((g) => g.categoria).filter(Boolean)),
+        const catsMap = new Map();
+        horariosData.forEach((h) => {
+          if (h.categoriaId && h.categoriaNombre) {
+            catsMap.set(h.categoriaId, h.categoriaNombre);
+          }
+        });
+        setCategories(
+          Array.from(catsMap.entries()).map(([id, nombre]) => ({ id, nombre })),
         );
-        setCategories(cats);
       } catch (err) {
         console.error(err);
       } finally {
@@ -252,8 +257,8 @@ export default function VistaClub() {
                     </option>
                   ))}
                   {categories.map((c) => (
-                    <option key={`c-${c}`} value={`category:${c}`}>
-                      {`Categoría: ${c}`}
+                    <option key={`c-${c.id}`} value={`category:${c.id}`}>
+                      {`Categoría: ${c.nombre}`}
                     </option>
                   ))}
                 </select>
@@ -268,8 +273,8 @@ export default function VistaClub() {
                         return String(h.grupoId) === String(id);
                       }
                       if (filtro.startsWith("category:")) {
-                        const cat = filtro.split(":")[1];
-                        return String(h.categoria) === String(cat);
+                        const id = filtro.split(":")[1];
+                        return String(h.categoriaId) === String(id);
                       }
                       return true;
                     })
@@ -302,12 +307,16 @@ export default function VistaClub() {
                           Ubicación: {horario.ubicacion || "No especificada"}
                         </p>
                         <p className="mt-2 text-sm text-slate-500">
-                          Para:{" "}
-                          {horario.grupoNombre
-                            ? horario.grupoNombre
-                            : horario.categoria
-                              ? `Categoría: ${horario.categoria}`
-                              : "No especificado"}
+                          {[
+                            horario.grupoNombre
+                              ? `Grupo: ${horario.grupoNombre}`
+                              : null,
+                            horario.categoriaNombre
+                              ? `Categoría: ${horario.categoriaNombre}`
+                              : null,
+                          ]
+                            .filter(Boolean)
+                            .join(" · ") || "Sin destinatario"}
                         </p>
                       </div>
                     ))}

@@ -20,7 +20,8 @@ const initialHorarioForm = {
   horaFin: "",
   ubicacion: "",
   descripcion: "",
-  asignadoA: "",
+  grupoId: "",
+  categoriaId: "",
 };
 
 const initialSessionForm = {
@@ -104,7 +105,7 @@ export default function PanelEntrenador() {
         );
 
         const categoriasAsignadas = Array.isArray(data?.categorias)
-          ? data.categorias.map((c) => c?.nombre).filter(Boolean)
+          ? data.categorias.filter((c) => c?.id && c?.nombre)
           : [];
         setCategorias(categoriasAsignadas);
 
@@ -170,10 +171,7 @@ export default function PanelEntrenador() {
     }
   };
 
-  const categoriaOptions =
-    categorias.length > 0
-      ? categorias
-      : Array.from(new Set(groups.map((g) => g.categoria).filter(Boolean)));
+  const categoriaOptions = categorias; // siempre objetos, nunca strings
 
   const handleHorarioChange = (e) => {
     setHorarioForm({
@@ -230,36 +228,17 @@ export default function PanelEntrenador() {
       return;
     }
 
-    // si el entrenador tiene grupos o categorías, debe especificar a quién va dirigido
-    if (
-      (groups.length > 0 || categoriaOptions.length > 0) &&
-      !horarioForm.asignadoA
-    ) {
-      setSuccessMessage("❌ Selecciona el grupo o categoría destinataria");
-      setTimeout(() => setSuccessMessage(""), 3000);
-      return;
-    }
-
     try {
       const payload = {
-        // Map numeric day value (1-7) to backend enum string (lunes, martes, etc.)
         dia: horarioForm.dia ? DIA_ENUM_MAP[String(horarioForm.dia)] : null,
         horaInicio: horarioForm.horaInicio,
         horaFin: horarioForm.horaFin,
         ubicacion: horarioForm.ubicacion,
         descripcion: horarioForm.descripcion,
+        grupoId: horarioForm.grupoId || null,
+        categoriaId: horarioForm.categoriaId || null,
       };
 
-      // parsear asignadoA en payload: formato 'group:<id>' o 'category:<nombre>'
-      if (horarioForm.asignadoA) {
-        if (horarioForm.asignadoA.startsWith("group:")) {
-          const id = horarioForm.asignadoA.split(":")[1];
-          payload.grupoId = id;
-        } else if (horarioForm.asignadoA.startsWith("category:")) {
-          const cat = horarioForm.asignadoA.split(":")[1];
-          payload.categoria = decodeURIComponent(cat);
-        }
-      }
       if (editingHorario) {
         await clubsService.actualizarHorario(editingHorario.id, payload);
         setSuccessMessage("✅ Horario actualizado");
@@ -289,17 +268,13 @@ export default function PanelEntrenador() {
     }
 
     setHorarioForm({
-      dia: diaValue !== undefined && diaValue !== null ? String(diaValue) : "",
+      dia: diaValue,
       horaInicio: horario.horaInicio,
       horaFin: horario.horaFin,
-      ubicacion: horario.ubicacion,
-      descripcion:
-        horario.descripcion || horario.description || horario.desc || "",
-      asignadoA: horario.grupoId
-        ? `group:${horario.grupoId}`
-        : horario.categoria
-          ? `category:${encodeURIComponent(horario.categoria)}`
-          : horario.asignadoA || "",
+      ubicacion: horario.ubicacion || "",
+      descripcion: horario.descripcion || "",
+      grupoId: horario.grupoId ? String(horario.grupoId) : "",
+      categoriaId: horario.categoriaId ? String(horario.categoriaId) : "",
     });
   };
 
@@ -485,13 +460,13 @@ export default function PanelEntrenador() {
                       </p>
                     ) : (
                       <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {categoriaOptions.map((categoria) => (
+                        {categorias.map((cat) => (
                           <div
-                            key={categoria}
+                            key={cat.id}
                             className="rounded-3xl border border-slate-200 bg-white p-4"
                           >
                             <p className="font-semibold text-slate-900">
-                              {categoria}
+                              {cat.nombre}
                             </p>
                           </div>
                         ))}
@@ -509,36 +484,14 @@ export default function PanelEntrenador() {
                       </p>
                     ) : (
                       <div className="mt-4 space-y-4">
-                        {Array.from(
-                          new Map(
-                            groups
-                              .filter((g) => g.categoria)
-                              .map((group) => [group.categoria, group]),
-                          ).entries(),
-                        ).map(([categoria, _]) => (
-                          <div key={categoria}>
+                        {categorias.map((cat) => (
+                          <div key={cat.id}>
                             <p className="font-semibold text-slate-900">
-                              {categoria}
+                              {cat.nombre}
                             </p>
-                            <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                              {groups
-                                .filter(
-                                  (group) => group.categoria === categoria,
-                                )
-                                .map((group) => (
-                                  <div
-                                    key={group.id}
-                                    className="rounded-2xl border border-slate-200 bg-white p-4"
-                                  >
-                                    <p className="font-semibold text-slate-900">
-                                      {group.nombre}
-                                    </p>
-                                    <p className="text-sm text-slate-500 mt-2">
-                                      Deportistas: {group.deportistas.length}
-                                    </p>
-                                  </div>
-                                ))}
-                            </div>
+                            <p className="text-sm text-slate-500">
+                              {cat.descripcion}
+                            </p>
                           </div>
                         ))}
                       </div>
@@ -785,15 +738,16 @@ export default function PanelEntrenador() {
                                 "Sin descripción"}
                             </p>
                             <p className="mt-2 text-sm text-slate-500">
-                              Para:{" "}
-                              {horario.grupoId
-                                ? groups.find(
-                                    (g) =>
-                                      String(g.id) === String(horario.grupoId),
-                                  )?.nombre || `Grupo ${horario.grupoId}`
-                                : horario.categoria
-                                  ? `Categoría: ${horario.categoria}`
-                                  : horario.asignadoA || "No especificado"}
+                              {[
+                                horario.grupoNombre
+                                  ? `Grupo: ${horario.grupoNombre}`
+                                  : null,
+                                horario.categoriaNombre
+                                  ? `Categoría: ${horario.categoriaNombre}`
+                                  : null,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ") || "Sin destinatario"}
                             </p>
                           </div>
                         ))}
@@ -886,33 +840,35 @@ export default function PanelEntrenador() {
                     />
 
                     <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Destinatario
+                      Grupo
                     </label>
                     <select
-                      name="asignadoA"
-                      value={horarioForm.asignadoA}
+                      name="grupoId"
+                      value={horarioForm.grupoId}
                       onChange={handleHorarioChange}
                       className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
                     >
-                      <option value="">
-                        {groups.length === 0 && categoriaOptions.length === 0
-                          ? "No hay grupos ni categorías"
-                          : "Selecciona grupo o categoría"}
-                      </option>
-                      {groups.map((group) => (
-                        <option
-                          key={`g-${group.id}`}
-                          value={`group:${group.id}`}
-                        >
-                          {group.nombre} (Grupo)
+                      <option value="">Sin grupo específico</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={String(g.id)}>
+                          {g.nombre}
                         </option>
                       ))}
-                      {categoriaOptions.map((cat) => (
-                        <option
-                          key={`c-${cat}`}
-                          value={`category:${encodeURIComponent(cat)}`}
-                        >
-                          {`Categoría: ${cat}`}
+                    </select>
+
+                    <label className="block text-sm font-medium text-slate-700 mt-4">
+                      Categoría (opcional)
+                    </label>
+                    <select
+                      name="categoriaId"
+                      value={horarioForm.categoriaId}
+                      onChange={handleHorarioChange}
+                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                    >
+                      <option value="">Todas las categorías</option>
+                      {categorias.map((cat) => (
+                        <option key={cat.id} value={String(cat.id)}>
+                          {cat.nombre}
                         </option>
                       ))}
                     </select>
