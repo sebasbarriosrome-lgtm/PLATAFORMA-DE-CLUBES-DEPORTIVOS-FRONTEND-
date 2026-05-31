@@ -1,42 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { clubsService } from "../services/Clubs.service";
-import { apiRequest } from "../services/api";
+import { sesionesService } from "../services/Sesiones.service";
+
+// ─── Constantes ───────────────────────────────────────────────────────────────
 
 const sections = [
   { name: "Mis grupos", icon: "👥" },
   { name: "Categorías", icon: "🏷️" },
   { name: "Deportistas", icon: "🏃" },
   { name: "Sesiones", icon: "📅" },
-  { name: "Asistencia", icon: "✅" },
-  { name: "Actividades", icon: "⚙️" },
   { name: "Horarios", icon: "🕒" },
   { name: "Métricas", icon: "📈" },
   { name: "Rendimiento", icon: "🏆" },
 ];
 
-const initialHorarioForm = {
-  dia: "",
-  horaInicio: "",
-  horaFin: "",
-  ubicacion: "",
-  descripcion: "",
-  grupoId: "",
-  categoriaId: "",
-};
+const SESSION_TABS = ["Actividades", "Asistencia"];
 
-const initialSessionForm = {
-  nombre: "",
-  grupo: "",
-  fecha: "",
-  objetivo: "",
-};
-
-const initialMetricForm = {
-  deportista: "",
-  actividad: "",
-  valor: "",
-  comentario: "",
+const ESTADO_COLORS = {
+  programada: "bg-blue-100 text-blue-700",
+  completada: "bg-emerald-100 text-emerald-700",
+  cancelada: "bg-red-100 text-red-700",
 };
 
 const DIA_NOMBRES = {
@@ -48,8 +32,6 @@ const DIA_NOMBRES = {
   6: "Sábado",
   7: "Domingo",
 };
-
-// Map from numeric values in select dropdown to enum values expected by backend
 const DIA_ENUM_MAP = {
   1: "lunes",
   2: "martes",
@@ -59,8 +41,6 @@ const DIA_ENUM_MAP = {
   6: "sabado",
   7: "domingo",
 };
-
-// Reverse map: from backend enum strings to numeric values for the select
 const ENUM_DIA_MAP = {
   lunes: "1",
   martes: "2",
@@ -71,31 +51,135 @@ const ENUM_DIA_MAP = {
   domingo: "7",
 };
 
+const initialHorarioForm = {
+  dia: "",
+  horaInicio: "",
+  horaFin: "",
+  ubicacion: "",
+  descripcion: "",
+  grupoId: "",
+  categoriaId: "",
+};
+const initialSesionForm = {
+  grupoId: "",
+  fecha: "",
+  horaInicio: "",
+  horaFin: "",
+  descripcion: "",
+};
+const initialActividadForm = {
+  actividadId: "",
+  duracionMinutos: "",
+  descripcion: "",
+};
+const initialNewActForm = { nombre: "", descripcion: "" };
+const initialMetricForm = {
+  deportista: "",
+  actividad: "",
+  valor: "",
+  comentario: "",
+};
+
+// ─── Helpers UI ───────────────────────────────────────────────────────────────
+
+function SectionCard({ title, subtitle, children }) {
+  return (
+    <div className="bg-white rounded-3xl p-6 shadow-sm">
+      <h2 className="text-2xl font-semibold text-slate-900">{title}</h2>
+      {subtitle && <p className="mt-2 text-slate-500">{subtitle}</p>}
+      <div className="mt-6">{children}</div>
+    </div>
+  );
+}
+
+function FormField({ label, children }) {
+  return (
+    <div className="mt-4">
+      <label className="block text-sm font-medium text-slate-700">
+        {label}
+      </label>
+      <div className="mt-2">{children}</div>
+    </div>
+  );
+}
+
+function inputCls() {
+  return "w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500";
+}
+
+function PrimaryBtn({ onClick, children, disabled }) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+    >
+      {children}
+    </button>
+  );
+}
+
+// ─── Componente principal ─────────────────────────────────────────────────────
+
 export default function PanelEntrenador() {
   const navigate = useNavigate();
   const [activeSection, setActiveSection] = useState("Mis grupos");
-  const [horarios, setHorarios] = useState([]);
-  const [horariosLoading, setHorariosLoading] = useState(true);
-  const [horarioForm, setHorarioForm] = useState(initialHorarioForm);
-  const [editingHorario, setEditingHorario] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
+
+  // datos globales del panel
   const [groups, setGroups] = useState([]);
   const [categorias, setCategorias] = useState([]);
-  const [sessions, setSessions] = useState([]);
-  const [activities, setActivities] = useState([]);
-  const [attendance, setAttendance] = useState([]);
   const [athletes, setAthletes] = useState([]);
   const [assignedAthletes, setAssignedAthletes] = useState([]);
+
+  // horarios
+  const [horarios, setHorarios] = useState([]);
+  const [horariosLoading, setHorariosLoading] = useState(false);
+  const [horarioForm, setHorarioForm] = useState(initialHorarioForm);
+  const [editingHorario, setEditingHorario] = useState(null);
+
+  // deportistas — asignación
   const [assignmentForm, setAssignmentForm] = useState({
     deportistaId: "",
     grupoId: "",
     categoriaId: "",
   });
-  const [metricForm, setMetricForm] = useState(initialMetricForm);
-  const [performanceReports, setPerformanceReports] = useState([]);
-  const [sessionForm, setSessionForm] = useState(initialSessionForm);
 
-  const loadTrainerData = async () => {
+  // sesiones
+  const [sesiones, setSesiones] = useState([]);
+  const [sesionesLoading, setSesionesLoading] = useState(false);
+  const [sesionForm, setSesionForm] = useState(initialSesionForm);
+  const [selectedSesion, setSelectedSesion] = useState(null); // sesión abierta en detalle
+  const [sesionTab, setSesionTab] = useState("Actividades");
+
+  // actividades del catálogo
+  const [actividades, setActividades] = useState([]);
+  const [actividadForm, setActividadForm] = useState(initialActividadForm);
+  const [newActForm, setNewActForm] = useState(initialNewActForm);
+  const [showNewActForm, setShowNewActForm] = useState(false);
+
+  // actividades de la sesión seleccionada
+  const [sesionActividades, setSesionActividades] = useState([]);
+  const [actividadesLoading, setActividadesLoading] = useState(false);
+
+  // asistencia de la sesión seleccionada
+  const [asistencia, setAsistencia] = useState([]);
+  const [asistenciaLoading, setAsistenciaLoading] = useState(false);
+
+  // métricas
+  const [metricForm, setMetricForm] = useState(initialMetricForm);
+  const [performanceReports] = useState([]);
+
+  // ── Helpers de notificación ──────────────────────────────────────────────
+
+  const notify = (msg) => {
+    setSuccessMessage(msg);
+    setTimeout(() => setSuccessMessage(""), 3000);
+  };
+
+  // ── Carga inicial ────────────────────────────────────────────────────────
+
+  const loadTrainerData = useCallback(async () => {
     try {
       const [groupsData, categoriesData, deportistasData] = await Promise.all([
         clubsService.getGroups(),
@@ -104,13 +188,13 @@ export default function PanelEntrenador() {
       ]);
 
       const normalizedGroups = Array.isArray(groupsData)
-        ? groupsData.map((group) => ({
-            ...group,
-            deportistas: Array.isArray(group.deportistas)
-              ? group.deportistas.map((athlete) => ({
-                  id: athlete.deportistaId ?? athlete.id,
-                  nombre: `${athlete.nombre} ${athlete.apellido}`,
-                  ...athlete,
+        ? groupsData.map((g) => ({
+            ...g,
+            deportistas: Array.isArray(g.deportistas)
+              ? g.deportistas.map((a) => ({
+                  id: a.deportistaId ?? a.id,
+                  nombre: `${a.nombre} ${a.apellido}`,
+                  ...a,
                 }))
               : [],
           }))
@@ -120,73 +204,223 @@ export default function PanelEntrenador() {
       setCategorias(Array.isArray(categoriesData) ? categoriesData : []);
 
       const athleteList = Array.isArray(deportistasData)
-        ? deportistasData.map((athlete) => ({
-            id: athlete.deportistaId,
-            nombre: `${athlete.nombre} ${athlete.apellido}`,
-            grupoId: athlete.grupoId ?? "",
-            categoriaId: athlete.categoriaId ?? "",
+        ? deportistasData.map((a) => ({
+            id: a.deportistaId,
+            nombre: `${a.nombre} ${a.apellido}`,
+            grupoId: a.grupoId ?? "",
+            categoriaId: a.categoriaId ?? "",
           }))
         : [];
 
       setAthletes(athleteList);
       setAssignedAthletes(athleteList);
     } catch (err) {
-      console.error("No se pudo cargar datos del entrenador:", err);
-    } finally {
-      setHorariosLoading(false);
+      console.error("Error cargando datos del entrenador:", err);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadTrainerData();
-  }, []);
+  }, [loadTrainerData]);
 
-  // ✅ NUEVO: Cargar horarios cuando se abre la sección
+  // ── Carga por sección ────────────────────────────────────────────────────
+
   useEffect(() => {
-    if (activeSection === "Horarios") {
-      cargarHorarios();
-    }
+    if (activeSection === "Horarios") cargarHorarios();
+    if (activeSection === "Sesiones") cargarSesionesYActividades();
   }, [activeSection]);
 
   const cargarHorarios = async () => {
     setHorariosLoading(true);
-
     try {
-      const datos = await clubsService.getHorariosClub(); // ✅ SIN NADA
-
-      console.log("Horarios obtenidos:", datos);
-
+      const datos = await clubsService.getHorariosClub();
       setHorarios(datos || []);
-    } catch (err) {
-      console.error("Error cargando horarios", err);
+    } catch {
       setHorarios([]);
     } finally {
       setHorariosLoading(false);
     }
   };
 
-  const categoriaOptions = categorias; // siempre objetos, nunca strings
+  const cargarSesionesYActividades = async () => {
+    setSesionesLoading(true);
+    try {
+      const [ses, acts] = await Promise.all([
+        sesionesService.getSesiones(),
+        sesionesService.getActividades(),
+      ]);
+      setSesiones(Array.isArray(ses) ? ses : []);
+      setActividades(Array.isArray(acts) ? acts : []);
+    } catch (err) {
+      console.error("Error cargando sesiones:", err);
+    } finally {
+      setSesionesLoading(false);
+    }
+  };
 
-  const getCategoriaName = (categoriaIdOrName) => {
-    if (!categoriaIdOrName) return "";
-    const category = categorias.find(
-      (cat) => String(cat.id) === String(categoriaIdOrName),
+  // ── Detalle de sesión ────────────────────────────────────────────────────
+
+  const abrirSesion = async (sesion) => {
+    setSelectedSesion(sesion);
+    setSesionTab("Actividades");
+    await Promise.all([
+      cargarActividadesDeSesion(sesion.id),
+      cargarAsistenciaDeSesion(sesion.id),
+    ]);
+  };
+
+  const cerrarSesion = () => {
+    setSelectedSesion(null);
+    setSesionActividades([]);
+    setAsistencia([]);
+  };
+
+  const cargarActividadesDeSesion = async (sesionId) => {
+    setActividadesLoading(true);
+    try {
+      const data = await sesionesService.getActividadesBySesion(sesionId);
+      setSesionActividades(Array.isArray(data) ? data : []);
+    } catch {
+      setSesionActividades([]);
+    } finally {
+      setActividadesLoading(false);
+    }
+  };
+
+  const cargarAsistenciaDeSesion = async (sesionId) => {
+    setAsistenciaLoading(true);
+    try {
+      const data = await sesionesService.getAsistenciaBySesion(sesionId);
+      setAsistencia(Array.isArray(data) ? data : []);
+    } catch {
+      setAsistencia([]);
+    } finally {
+      setAsistenciaLoading(false);
+    }
+  };
+
+  // ── Sesiones CRUD ────────────────────────────────────────────────────────
+
+  const handleCrearSesion = async () => {
+    if (!sesionForm.grupoId || !sesionForm.fecha) {
+      notify("❌ Selecciona grupo y fecha");
+      return;
+    }
+    try {
+      await sesionesService.crearSesion(sesionForm);
+      notify("✅ Sesión creada");
+      setSesionForm(initialSesionForm);
+      await cargarSesionesYActividades();
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  const handleCambiarEstado = async (sesionId, estado) => {
+    try {
+      await sesionesService.actualizarEstadoSesion(sesionId, estado);
+      notify("✅ Estado actualizado");
+      await cargarSesionesYActividades();
+      // refrescar sesión seleccionada si está abierta
+      if (selectedSesion?.id === sesionId) {
+        setSelectedSesion((prev) => ({ ...prev, estado }));
+      }
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  const handleEliminarSesion = async (sesionId) => {
+    try {
+      await sesionesService.eliminarSesion(sesionId);
+      notify("✅ Sesión eliminada");
+      if (selectedSesion?.id === sesionId) cerrarSesion();
+      await cargarSesionesYActividades();
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  // ── Actividades de sesión ────────────────────────────────────────────────
+
+  const handleAgregarActividad = async () => {
+    if (!actividadForm.actividadId) {
+      notify("❌ Selecciona una actividad");
+      return;
+    }
+    try {
+      await sesionesService.agregarActividadASesion(selectedSesion.id, {
+        actividadId: Number(actividadForm.actividadId),
+        duracionMinutos: actividadForm.duracionMinutos
+          ? Number(actividadForm.duracionMinutos)
+          : null,
+        descripcion: actividadForm.descripcion,
+      });
+      notify("✅ Actividad agregada");
+      setActividadForm(initialActividadForm);
+      await cargarActividadesDeSesion(selectedSesion.id);
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  const handleQuitarActividad = async (sesionActividadId) => {
+    try {
+      await sesionesService.quitarActividadDeSesion(sesionActividadId);
+      notify("✅ Actividad eliminada");
+      await cargarActividadesDeSesion(selectedSesion.id);
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  const handleCrearNuevaActividad = async () => {
+    if (!newActForm.nombre.trim()) {
+      notify("❌ Escribe un nombre para la actividad");
+      return;
+    }
+    try {
+      await sesionesService.crearActividad(newActForm);
+      notify("✅ Actividad creada en el catálogo");
+      setNewActForm(initialNewActForm);
+      setShowNewActForm(false);
+      await cargarSesionesYActividades();
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  // ── Asistencia ───────────────────────────────────────────────────────────
+
+  const toggleAsistencia = (deportistaId) => {
+    setAsistencia((prev) =>
+      prev.map((a) =>
+        a.deportistaId === deportistaId
+          ? { ...a, estado: a.estado === "presente" ? "ausente" : "presente" }
+          : a,
+      ),
     );
-    return category?.nombre || categoriaIdOrName;
   };
 
-  const getGroupName = (groupId) => {
-    if (!groupId) return "";
-    const group = groups.find((g) => String(g.id) === String(groupId));
-    return group?.nombre || groupId;
+  const handleGuardarAsistencia = async () => {
+    if (!selectedSesion) return;
+    try {
+      const lista = asistencia.map((a) => ({
+        deportistaId: a.deportistaId,
+        estado: a.estado,
+        fecha: selectedSesion.fecha,
+      }));
+      await sesionesService.registrarAsistenciaLote(selectedSesion.id, lista);
+      notify("✅ Asistencia guardada");
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
   };
 
-  const handleHorarioChange = (e) => {
-    setHorarioForm({
-      ...horarioForm,
-      [e.target.name]: e.target.value,
-    });
-  };
+  // ── Horarios ─────────────────────────────────────────────────────────────
+
+  const handleHorarioChange = (e) =>
+    setHorarioForm({ ...horarioForm, [e.target.name]: e.target.value });
 
   const resetHorarioForm = () => {
     setHorarioForm(initialHorarioForm);
@@ -194,51 +428,13 @@ export default function PanelEntrenador() {
   };
 
   const handleHorarioSave = async () => {
-    // DEBUG: inspeccionar valores actuales del formulario
-    console.log("handleHorarioSave - horarioForm (raw):", horarioForm);
-    // trim values to avoid whitespace-only inputs
-    let diaVal = horarioForm.dia ? String(horarioForm.dia).trim() : "";
-    let inicioVal = horarioForm.horaInicio
-      ? String(horarioForm.horaInicio).trim()
-      : "";
-    let finVal = horarioForm.horaFin ? String(horarioForm.horaFin).trim() : "";
-    console.log("handleHorarioSave - valores recortados:", {
-      diaVal,
-      inicioVal,
-      finVal,
-    });
-
-    // Fallback: si el estado React no se actualizó por alguna razón, leer directamente del DOM
-    if (!diaVal || !inicioVal || !finVal) {
-      const domDia = document.querySelector('select[name="dia"]')?.value || "";
-      const domInicio =
-        document.querySelector('input[name="horaInicio"]')?.value || "";
-      const domFin =
-        document.querySelector('input[name="horaFin"]')?.value || "";
-      console.log("handleHorarioSave - DOM fallback:", {
-        domDia,
-        domInicio,
-        domFin,
-      });
-      if (!diaVal && domDia) diaVal = String(domDia).trim();
-      if (!inicioVal && domInicio) inicioVal = String(domInicio).trim();
-      if (!finVal && domFin) finVal = String(domFin).trim();
-      console.log("handleHorarioSave - after fallback:", {
-        diaVal,
-        inicioVal,
-        finVal,
-      });
-    }
-
-    if (!diaVal || !inicioVal || !finVal) {
-      setSuccessMessage("❌ Complete día y horas para el horario");
-      setTimeout(() => setSuccessMessage(""), 3000);
+    if (!horarioForm.dia || !horarioForm.horaInicio || !horarioForm.horaFin) {
+      notify("❌ Complete día y horas para el horario");
       return;
     }
-
     try {
       const payload = {
-        dia: horarioForm.dia ? DIA_ENUM_MAP[String(horarioForm.dia)] : null,
+        dia: DIA_ENUM_MAP[String(horarioForm.dia)],
         horaInicio: horarioForm.horaInicio,
         horaFin: horarioForm.horaFin,
         ubicacion: horarioForm.ubicacion,
@@ -246,238 +442,180 @@ export default function PanelEntrenador() {
         grupoId: horarioForm.grupoId || null,
         categoriaId: horarioForm.categoriaId || null,
       };
-
       if (editingHorario) {
         await clubsService.actualizarHorario(editingHorario.id, payload);
-        setSuccessMessage("✅ Horario actualizado");
+        notify("✅ Horario actualizado");
       } else {
         await clubsService.crearHorario(payload);
-        setSuccessMessage("✅ Horario creado");
+        notify("✅ Horario creado");
       }
-
       resetHorarioForm();
       await cargarHorarios();
     } catch (err) {
-      console.error(err);
-      setSuccessMessage("❌ Error guardando horario");
-    } finally {
-      setTimeout(() => setSuccessMessage(""), 3000);
+      notify("❌ " + err.message);
     }
   };
 
-  const handleHorarioEdit = (horario) => {
-    setEditingHorario(horario);
-
-    // Convert backend day string (lunes, martes, etc.) to numeric value (1-7) for select
-    let diaValue = horario.dia;
-    if (typeof horario.dia === "string") {
-      const lowerDia = horario.dia.toLowerCase();
-      diaValue = ENUM_DIA_MAP[lowerDia] || horario.dia;
-    }
-
+  const handleHorarioEdit = (h) => {
+    setEditingHorario(h);
+    let diaValue =
+      typeof h.dia === "string"
+        ? ENUM_DIA_MAP[h.dia.toLowerCase()] || h.dia
+        : h.dia;
     setHorarioForm({
       dia: diaValue,
-      horaInicio: horario.horaInicio,
-      horaFin: horario.horaFin,
-      ubicacion: horario.ubicacion || "",
-      descripcion: horario.descripcion || "",
-      grupoId: horario.grupoId ? String(horario.grupoId) : "",
-      categoriaId: horario.categoriaId ? String(horario.categoriaId) : "",
+      horaInicio: h.horaInicio,
+      horaFin: h.horaFin,
+      ubicacion: h.ubicacion || "",
+      descripcion: h.descripcion || "",
+      grupoId: h.grupoId ? String(h.grupoId) : "",
+      categoriaId: h.categoriaId ? String(h.categoriaId) : "",
     });
   };
 
   const handleHorarioDelete = async (id) => {
     try {
-      console.log("🗑️ Eliminando horario:", id);
-      const result = await clubsService.eliminarHorario(id);
-      console.log("🗑️ Resultado delete:", result);
-      setSuccessMessage("✅ Horario eliminado");
-      // Recargar horarios después de eliminar
+      await clubsService.eliminarHorario(id);
+      notify("✅ Horario eliminado");
       await cargarHorarios();
     } catch (err) {
-      console.error("❌ Error eliminando horario:", err);
-      setSuccessMessage("❌ Error eliminando horario: " + err.message);
-    } finally {
-      setTimeout(() => setSuccessMessage(""), 3000);
+      notify("❌ " + err.message);
     }
   };
 
-  const handleSessionChange = (e) => {
-    setSessionForm({
-      ...sessionForm,
-      [e.target.name]: e.target.value,
-    });
-  };
+  // ── Deportistas ──────────────────────────────────────────────────────────
 
-  const handleCreateSession = () => {
-    const nuevaSesion = {
-      id: sessions.length + 1,
-      nombre: sessionForm.nombre || `Sesión ${sessions.length + 1}`,
-      grupo: sessionForm.grupo,
-      fecha: sessionForm.fecha,
-      estado: "Planificada",
-    };
-    setSessions([nuevaSesion, ...sessions]);
-    setSessionForm(initialSessionForm);
-    setSuccessMessage("✅ Sesión creada");
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
-
-  const handleMetricChange = (e) => {
-    setMetricForm({
-      ...metricForm,
-      [e.target.name]: e.target.value,
-    });
-  };
-
-  const handleAssignmentChange = (e) => {
-    setAssignmentForm({
-      ...assignmentForm,
-      [e.target.name]: e.target.value,
-    });
-  };
+  const getCategoriaName = (id) =>
+    categorias.find((c) => String(c.id) === String(id))?.nombre || "";
+  const getGroupName = (id) =>
+    groups.find((g) => String(g.id) === String(id))?.nombre || "";
 
   const handleAssignAthlete = async () => {
     if (!assignmentForm.deportistaId) {
-      setSuccessMessage("❌ Selecciona un deportista para asignar");
-      setTimeout(() => setSuccessMessage(""), 3000);
+      notify("❌ Selecciona un deportista");
       return;
     }
-
-    const hasGroupUpdate = assignmentForm.grupoId !== "";
-    const hasCategoryUpdate = assignmentForm.categoriaId !== "";
-
-    if (!hasGroupUpdate && !hasCategoryUpdate) {
-      setSuccessMessage("❌ Selecciona un grupo o una categoría para asignar");
-      setTimeout(() => setSuccessMessage(""), 3000);
+    if (!assignmentForm.grupoId && !assignmentForm.categoriaId) {
+      notify("❌ Selecciona grupo o categoría");
       return;
     }
-
     try {
       const actions = [];
-      if (hasGroupUpdate) {
+      if (assignmentForm.grupoId)
         actions.push(
           clubsService.assignDeportistaToGroup(
             assignmentForm.deportistaId,
-            assignmentForm.grupoId || null,
+            assignmentForm.grupoId,
           ),
         );
-      }
-      if (hasCategoryUpdate) {
+      if (assignmentForm.categoriaId)
         actions.push(
           clubsService.assignDeportistaToCategory(
             assignmentForm.deportistaId,
-            assignmentForm.categoriaId || null,
+            assignmentForm.categoriaId,
           ),
         );
-      }
-
       await Promise.all(actions);
-      setSuccessMessage("✅ Deportista actualizado correctamente");
+      notify("✅ Deportista actualizado");
       setAssignmentForm({ deportistaId: "", grupoId: "", categoriaId: "" });
-
       await loadTrainerData();
     } catch (err) {
-      console.error("Error asignando deportista:", err);
-      setSuccessMessage("❌ Error asignando deportista: " + err.message);
-    } finally {
-      setTimeout(() => setSuccessMessage(""), 3000);
+      notify("❌ " + err.message);
     }
   };
 
-  const handleMetricSubmit = () => {
-    setSuccessMessage("✅ Métrica registrada");
-    setMetricForm(initialMetricForm);
-    setTimeout(() => setSuccessMessage(""), 3000);
-  };
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="min-h-screen bg-slate-100 py-10 px-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* REGRESAR (fuera del card) */}
-        <div className="mb-4">
-          <button
-            onClick={() => navigate("/UserProfile")}
-            className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:shadow-md transition-colors hover:bg-blue-50"
+        {/* Botón volver */}
+        <button
+          onClick={() => navigate("/UserProfile")}
+          className="inline-flex items-center gap-3 rounded-full bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow-sm hover:shadow-md hover:bg-blue-50 transition-colors"
+        >
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            className="h-4 w-4 text-blue-600"
+            viewBox="0 0 20 20"
+            fill="currentColor"
           >
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              className="h-4 w-4 text-blue-600"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M7.707 14.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L4.414 9H18a1 1 0 110 2H4.414l3.293 3.293a1 1 0 010 1.414z"
-                clipRule="evenodd"
-              />
-            </svg>
-            <span className="text-slate-800">Volver al perfil</span>
-          </button>
-        </div>
+            <path
+              fillRule="evenodd"
+              d="M7.707 14.707a1 1 0 01-1.414 0l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 1.414L4.414 9H18a1 1 0 110 2H4.414l3.293 3.293a1 1 0 010 1.414z"
+              clipRule="evenodd"
+            />
+          </svg>
+          Volver al perfil
+        </button>
 
-        <div className="bg-white rounded-[32px] p-8 shadow-md">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-3xl font-semibold text-slate-900">
-                Panel del entrenador
-              </h1>
-              <p className="mt-2 text-slate-500 max-w-2xl">
-                Supervisa grupos, crea sesiones, administra horarios y registra
-                métricas de rendimiento.
-              </p>
-            </div>
-            <div className="rounded-3xl bg-slate-50 px-5 py-4 text-slate-700">
-              <p className="text-sm uppercase tracking-[0.18em] text-slate-400">
-                Rol
-              </p>
-              <p className="mt-2 text-xl font-semibold">Entrenador</p>
-            </div>
+        {/* Header */}
+        <div className="bg-white rounded-[32px] p-8 shadow-md flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">
+              Panel del entrenador
+            </h1>
+            <p className="mt-2 text-slate-500 max-w-2xl">
+              Supervisa grupos, crea sesiones, administra horarios y registra
+              métricas de rendimiento.
+            </p>
+          </div>
+          <div className="rounded-3xl bg-slate-50 px-5 py-4 text-slate-700">
+            <p className="text-sm uppercase tracking-[0.18em] text-slate-400">
+              Rol
+            </p>
+            <p className="mt-2 text-xl font-semibold">Entrenador</p>
           </div>
         </div>
 
+        {/* Layout */}
         <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+          {/* Sidebar */}
           <aside className="bg-white rounded-2xl p-5 shadow">
             <nav className="space-y-2">
-              {sections.map((section) => (
+              {sections.map((s) => (
                 <button
-                  key={section.name}
-                  onClick={() => setActiveSection(section.name)}
-                  className={`w-full text-left px-4 py-3 rounded-xl transition ${
-                    activeSection === section.name
+                  key={s.name}
+                  onClick={() => {
+                    setActiveSection(s.name);
+                    cerrarSesion();
+                  }}
+                  className={`w-full text-left px-4 py-3 rounded-xl transition text-sm ${
+                    activeSection === s.name
                       ? "bg-blue-600 text-white"
                       : "bg-slate-50 text-slate-700 hover:bg-blue-50"
                   }`}
                 >
-                  {section.icon} {section.name}
+                  {s.icon} {s.name}
                 </button>
               ))}
             </nav>
           </aside>
 
+          {/* Contenido */}
           <main className="space-y-6">
+            {/* Notificación */}
             {successMessage && (
               <div
-                className={
-                  "rounded-3xl px-4 py-3 text-sm " +
-                  (successMessage.startsWith("❌")
+                className={`rounded-3xl px-4 py-3 text-sm ${
+                  successMessage.startsWith("❌")
                     ? "border border-red-200 bg-red-50 text-red-700"
-                    : "border border-emerald-200 bg-emerald-50 text-emerald-700")
-                }
+                    : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                }`}
               >
                 {successMessage}
               </div>
             )}
 
+            {/* ── MIS GRUPOS ── */}
             {activeSection === "Mis grupos" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Mis grupos asignados
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Revisa los grupos a tu cargo y los deportistas asignados.
-                </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
+              <SectionCard
+                title="Mis grupos asignados"
+                subtitle="Revisa los grupos a tu cargo y los deportistas asignados."
+              >
+                <div className="grid gap-4 sm:grid-cols-2">
                   {groups.map((group) => (
                     <div
                       key={group.id}
@@ -489,29 +627,56 @@ export default function PanelEntrenador() {
                       <div className="mt-4 text-sm text-slate-700">
                         <p className="font-medium">Deportistas:</p>
                         <ul className="mt-2 list-disc pl-5 space-y-1">
-                          {group.deportistas.map((athlete) => (
-                            <li key={athlete.id || athlete.nombre}>
-                              {athlete.nombre}
-                            </li>
+                          {group.deportistas.map((a) => (
+                            <li key={a.id || a.nombre}>{a.nombre}</li>
                           ))}
                         </ul>
                       </div>
                     </div>
                   ))}
                 </div>
-              </div>
+              </SectionCard>
             )}
 
-            {activeSection === "Deportistas" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Deportistas
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Asigna deportistas a un grupo o categoría desde aquí.
-                </p>
+            {/* ── CATEGORÍAS ── */}
+            {activeSection === "Categorías" && (
+              <SectionCard
+                title="Categorías"
+                subtitle="Revisa las categorías asignadas."
+              >
+                {categorias.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No tienes categorías asignadas.
+                  </p>
+                ) : (
+                  <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    {categorias.map((cat) => (
+                      <div
+                        key={cat.id}
+                        className="rounded-3xl border border-slate-200 bg-slate-50 p-4"
+                      >
+                        <p className="font-semibold text-slate-900">
+                          {cat.nombre}
+                        </p>
+                        {cat.descripcion && (
+                          <p className="mt-1 text-sm text-slate-500">
+                            {cat.descripcion}
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            )}
 
-                <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
+            {/* ── DEPORTISTAS ── */}
+            {activeSection === "Deportistas" && (
+              <SectionCard
+                title="Deportistas"
+                subtitle="Asigna deportistas a un grupo o categoría."
+              >
+                <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                     <h3 className="text-lg font-semibold text-slate-900">
                       Deportistas existentes
@@ -521,22 +686,21 @@ export default function PanelEntrenador() {
                         No hay deportistas cargados.
                       </p>
                     ) : (
-                      <div className="mt-4 space-y-4">
-                        {assignedAthletes.map((athlete) => (
+                      <div className="mt-4 space-y-3">
+                        {assignedAthletes.map((a) => (
                           <div
-                            key={athlete.id}
+                            key={a.id}
                             className="rounded-2xl border border-slate-200 bg-white p-4"
                           >
                             <p className="font-semibold text-slate-900">
-                              {athlete.nombre}
+                              {a.nombre}
                             </p>
-                            <p className="text-sm text-slate-500 mt-2">
-                              Grupo:{" "}
-                              {getGroupName(athlete.grupoId) || "Sin grupo"}
+                            <p className="text-sm text-slate-500 mt-1">
+                              Grupo: {getGroupName(a.grupoId) || "Sin grupo"}
                             </p>
                             <p className="text-sm text-slate-500">
                               Categoría:{" "}
-                              {getCategoriaName(athlete.categoriaId) ||
+                              {getCategoriaName(a.categoriaId) ||
                                 "Sin categoría"}
                             </p>
                           </div>
@@ -544,403 +708,640 @@ export default function PanelEntrenador() {
                       </div>
                     )}
                   </div>
-
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-slate-900 mb-4">
+                    <h3 className="font-semibold text-slate-900 mb-2">
                       Asignar deportista
                     </h3>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Deportista
-                    </label>
-                    <select
-                      name="deportistaId"
-                      value={assignmentForm.deportistaId}
-                      onChange={handleAssignmentChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="" disabled>
-                        {athletes.length === 0
-                          ? "No hay deportistas"
-                          : "Selecciona un deportista"}
-                      </option>
-                      {athletes.map((athlete) => (
-                        <option key={athlete.id} value={athlete.id}>
-                          {athlete.nombre}
-                        </option>
-                      ))}
-                    </select>
-
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Grupo
-                    </label>
-                    <select
-                      name="grupoId"
-                      value={assignmentForm.grupoId}
-                      onChange={handleAssignmentChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="">No asignar a grupo</option>
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.id}>
-                          {group.nombre}
-                        </option>
-                      ))}
-                    </select>
-
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Categoría
-                    </label>
-                    <select
-                      name="categoriaId"
-                      value={assignmentForm.categoriaId}
-                      onChange={handleAssignmentChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="">No asignar a categoría</option>
-                      {categorias.map((cat) => (
-                        <option key={cat.id} value={cat.id}>
-                          {cat.nombre}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      onClick={handleAssignAthlete}
-                      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
-                    >
-                      Asignar deportista
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeSection === "Categorías" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Categorías
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Revisa las categorías asignadas y los grupos asociados.
-                </p>
-
-                <div className="mt-6 space-y-6">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Categorías asignadas
-                    </h3>
-                    {categoriaOptions.length === 0 ? (
-                      <p className="mt-3 text-sm text-slate-500">
-                        No tienes categorías asignadas actualmente.
-                      </p>
-                    ) : (
-                      <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                        {categorias.map((cat) => (
-                          <div
-                            key={cat.id}
-                            className="rounded-3xl border border-slate-200 bg-white p-4"
-                          >
-                            <p className="font-semibold text-slate-900">
-                              {cat.nombre}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
-                    <h3 className="text-lg font-semibold text-slate-900">
-                      Grupos por categoría
-                    </h3>
-                    {groups.length === 0 ? (
-                      <p className="mt-3 text-sm text-slate-500">
-                        No hay grupos registrados para mostrar.
-                      </p>
-                    ) : (
-                      <div className="mt-4 space-y-4">
-                        {categorias.map((cat) => (
-                          <div key={cat.id}>
-                            <p className="font-semibold text-slate-900">
-                              {cat.nombre}
-                            </p>
-                            <p className="text-sm text-slate-500">
-                              {cat.descripcion}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeSection === "Sesiones" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                  <div>
-                    <h2 className="text-2xl font-semibold text-slate-900">
-                      Sesiones de entrenamiento
-                    </h2>
-                    <p className="mt-2 text-slate-500">
-                      Crea sesiones para tus grupos y revisa el historial.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_360px]">
-                  <div className="space-y-4">
-                    {sessions.map((session) => (
-                      <div
-                        key={session.id}
-                        className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                    <FormField label="Deportista">
+                      <select
+                        name="deportistaId"
+                        value={assignmentForm.deportistaId}
+                        onChange={(e) =>
+                          setAssignmentForm({
+                            ...assignmentForm,
+                            deportistaId: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
                       >
-                        <div className="flex items-center justify-between gap-4">
-                          <div>
-                            <h3 className="font-semibold text-slate-900">
-                              {session.nombre}
-                            </h3>
-                            <p className="text-sm text-slate-500">
-                              {session.grupo} • {session.fecha}
+                        <option value="">
+                          {athletes.length === 0
+                            ? "No hay deportistas"
+                            : "Selecciona"}
+                        </option>
+                        {athletes.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Grupo">
+                      <select
+                        name="grupoId"
+                        value={assignmentForm.grupoId}
+                        onChange={(e) =>
+                          setAssignmentForm({
+                            ...assignmentForm,
+                            grupoId: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
+                      >
+                        <option value="">No asignar a grupo</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Categoría">
+                      <select
+                        name="categoriaId"
+                        value={assignmentForm.categoriaId}
+                        onChange={(e) =>
+                          setAssignmentForm({
+                            ...assignmentForm,
+                            categoriaId: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
+                      >
+                        <option value="">No asignar a categoría</option>
+                        {categorias.map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <PrimaryBtn onClick={handleAssignAthlete}>
+                      Asignar deportista
+                    </PrimaryBtn>
+                  </div>
+                </div>
+              </SectionCard>
+            )}
+
+            {/* ══════════════════════════════════════════════
+                ── SESIONES (sección unificada) ──
+                ══════════════════════════════════════════════ */}
+            {activeSection === "Sesiones" && !selectedSesion && (
+              <SectionCard
+                title="Sesiones de entrenamiento"
+                subtitle="Crea sesiones para tus grupos. Haz clic en una para gestionar actividades y asistencia."
+              >
+                <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+                  {/* Lista de sesiones */}
+                  <div className="space-y-3">
+                    {sesionesLoading && (
+                      <p className="text-sm text-slate-400">
+                        Cargando sesiones...
+                      </p>
+                    )}
+                    {!sesionesLoading && sesiones.length === 0 && (
+                      <p className="text-sm text-slate-500">
+                        No hay sesiones creadas todavía.
+                      </p>
+                    )}
+                    {sesiones.map((s) => (
+                      <div
+                        key={s.id}
+                        className="rounded-2xl border border-slate-200 bg-slate-50 p-4 hover:border-blue-300 hover:bg-blue-50 transition-colors cursor-pointer"
+                        onClick={() => abrirSesion(s)}
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-semibold text-slate-900 truncate">
+                              {s.grupoNombre || "Grupo"} — {s.fecha}
+                            </p>
+                            <p className="text-sm text-slate-500 mt-1">
+                              {s.horaInicio} – {s.horaFin}
+                              {s.descripcion && ` · ${s.descripcion}`}
                             </p>
                           </div>
-                          <span className="rounded-full bg-blue-100 px-3 py-1 text-xs text-blue-700">
-                            {session.estado}
-                          </span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span
+                              className={`rounded-full px-3 py-1 text-xs font-medium ${ESTADO_COLORS[s.estado] || "bg-slate-100 text-slate-600"}`}
+                            >
+                              {s.estado}
+                            </span>
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleEliminarSesion(s.id);
+                              }}
+                              className="rounded-full border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              ✕
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
                   </div>
 
+                  {/* Formulario nueva sesión */}
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
-                    <h3 className="font-semibold text-slate-900 mb-4">
-                      Agregar sesión
+                    <h3 className="font-semibold text-slate-900">
+                      Nueva sesión
                     </h3>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Nombre
-                    </label>
-                    <input
-                      name="nombre"
-                      value={sessionForm.nombre}
-                      onChange={handleSessionChange}
-                      placeholder="Sesión de fuerza"
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                    />
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Grupo
-                    </label>
-                    <select
-                      name="grupo"
-                      value={sessionForm.grupo}
-                      onChange={handleSessionChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="" disabled>
-                        {groups.length === 0
-                          ? "No hay grupos disponibles"
-                          : "Selecciona un grupo"}
-                      </option>
-                      {groups.map((group) => (
-                        <option key={group.id} value={group.nombre}>
-                          {group.nombre}
-                        </option>
-                      ))}
-                    </select>
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Fecha
-                    </label>
-                    <input
-                      type="date"
-                      name="fecha"
-                      value={sessionForm.fecha}
-                      onChange={handleSessionChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                    />
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Objetivo
-                    </label>
-                    <textarea
-                      name="objetivo"
-                      value={sessionForm.objetivo}
-                      onChange={handleSessionChange}
-                      rows={4}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                      placeholder="Ej. Mejora de fuerza explosiva"
-                    />
-                    <button
-                      onClick={handleCreateSession}
-                      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
-                    >
-                      Crear sesión
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {activeSection === "Asistencia" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Asistencia
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Marca presente/ausente y revisa el historial por sesión.
-                </p>
-                <div className="mt-6 space-y-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    {attendance.map((entry) => (
-                      <div
-                        key={entry.id}
-                        className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                    <FormField label="Grupo">
+                      <select
+                        value={sesionForm.grupoId}
+                        onChange={(e) =>
+                          setSesionForm({
+                            ...sesionForm,
+                            grupoId: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
                       >
-                        <p className="font-semibold text-slate-900">
-                          {entry.deportista}
-                        </p>
-                        <p className="text-sm text-slate-500">
-                          {entry.grupo} • {entry.fecha}
-                        </p>
-                        <span className="mt-3 inline-flex rounded-full bg-slate-100 px-3 py-1 text-xs text-slate-600">
-                          {entry.estado}
-                        </span>
+                        <option value="">
+                          {groups.length === 0
+                            ? "Sin grupos"
+                            : "Selecciona un grupo"}
+                        </option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={g.id}>
+                            {g.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Fecha">
+                      <input
+                        type="date"
+                        value={sesionForm.fecha}
+                        onChange={(e) =>
+                          setSesionForm({
+                            ...sesionForm,
+                            fecha: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
+                      />
+                    </FormField>
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Hora inicio
+                        </label>
+                        <input
+                          type="time"
+                          value={sesionForm.horaInicio}
+                          onChange={(e) =>
+                            setSesionForm({
+                              ...sesionForm,
+                              horaInicio: e.target.value,
+                            })
+                          }
+                          className={`mt-2 ${inputCls()}`}
+                        />
                       </div>
-                    ))}
+                      <div>
+                        <label className="block text-sm font-medium text-slate-700">
+                          Hora fin
+                        </label>
+                        <input
+                          type="time"
+                          value={sesionForm.horaFin}
+                          onChange={(e) =>
+                            setSesionForm({
+                              ...sesionForm,
+                              horaFin: e.target.value,
+                            })
+                          }
+                          className={`mt-2 ${inputCls()}`}
+                        />
+                      </div>
+                    </div>
+                    <FormField label="Descripción (opcional)">
+                      <textarea
+                        rows={3}
+                        value={sesionForm.descripcion}
+                        onChange={(e) =>
+                          setSesionForm({
+                            ...sesionForm,
+                            descripcion: e.target.value,
+                          })
+                        }
+                        placeholder="Ej. Trabajo de velocidad y resistencia"
+                        className={`resize-none ${inputCls()}`}
+                      />
+                    </FormField>
+                    <PrimaryBtn onClick={handleCrearSesion}>
+                      Crear sesión
+                    </PrimaryBtn>
                   </div>
-                  <p className="text-sm text-slate-500">
-                    Nota: la funcionalidad de marcar asistencia se diseñará para
-                    usarse en sesiones ya creadas.
-                  </p>
                 </div>
-              </div>
+              </SectionCard>
             )}
 
-            {activeSection === "Actividades" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Actividades
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Revisa el catálogo de actividades y asigna las más adecuadas a
-                  tus sesiones.
-                </p>
-                <div className="mt-6 grid gap-4 sm:grid-cols-2">
-                  {activities.map((activity) => (
-                    <div
-                      key={activity.id}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-                    >
-                      <h3 className="font-semibold text-slate-900">
-                        {activity.nombre}
-                      </h3>
-                      <p className="mt-2 text-sm text-slate-500">
-                        {activity.descripcion}
+            {/* ── DETALLE DE SESIÓN ── */}
+            {activeSection === "Sesiones" && selectedSesion && (
+              <div className="space-y-4">
+                {/* Header detalle */}
+                <div className="bg-white rounded-3xl p-6 shadow-sm">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <button
+                        onClick={cerrarSesion}
+                        className="mb-3 inline-flex items-center gap-2 text-sm text-blue-600 hover:underline"
+                      >
+                        ← Volver a sesiones
+                      </button>
+                      <h2 className="text-2xl font-semibold text-slate-900">
+                        {selectedSesion.grupoNombre} — {selectedSesion.fecha}
+                      </h2>
+                      <p className="mt-1 text-slate-500 text-sm">
+                        {selectedSesion.horaInicio} – {selectedSesion.horaFin}
+                        {selectedSesion.descripcion &&
+                          ` · ${selectedSesion.descripcion}`}
                       </p>
                     </div>
-                  ))}
+                    {/* Cambiar estado */}
+                    <div className="flex items-center gap-2">
+                      <span
+                        className={`rounded-full px-3 py-1 text-xs font-medium ${ESTADO_COLORS[selectedSesion.estado] || "bg-slate-100 text-slate-600"}`}
+                      >
+                        {selectedSesion.estado}
+                      </span>
+                      {selectedSesion.estado === "programada" && (
+                        <button
+                          onClick={() =>
+                            handleCambiarEstado(selectedSesion.id, "completada")
+                          }
+                          className="rounded-full bg-emerald-100 px-3 py-1 text-xs text-emerald-700 hover:bg-emerald-200"
+                        >
+                          Marcar completada
+                        </button>
+                      )}
+                      {selectedSesion.estado !== "cancelada" && (
+                        <button
+                          onClick={() =>
+                            handleCambiarEstado(selectedSesion.id, "cancelada")
+                          }
+                          className="rounded-full bg-red-100 px-3 py-1 text-xs text-red-700 hover:bg-red-200"
+                        >
+                          Cancelar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Sub-tabs */}
+                  <div className="mt-6 flex gap-1 rounded-2xl bg-slate-100 p-1 w-fit">
+                    {SESSION_TABS.map((tab) => (
+                      <button
+                        key={tab}
+                        onClick={() => setSesionTab(tab)}
+                        className={`px-5 py-2 rounded-xl text-sm font-medium transition-colors ${
+                          sesionTab === tab
+                            ? "bg-white text-slate-900 shadow-sm"
+                            : "text-slate-500 hover:text-slate-700"
+                        }`}
+                      >
+                        {tab === "Actividades"
+                          ? "⚙️ Actividades"
+                          : "✅ Asistencia"}
+                      </button>
+                    ))}
+                  </div>
                 </div>
+
+                {/* ── TAB ACTIVIDADES ── */}
+                {sesionTab === "Actividades" && (
+                  <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+                    {/* Lista actividades de la sesión */}
+                    <div className="bg-white rounded-3xl p-6 shadow-sm">
+                      <h3 className="font-semibold text-slate-900 mb-4">
+                        Actividades de esta sesión
+                      </h3>
+                      {actividadesLoading && (
+                        <p className="text-sm text-slate-400">Cargando...</p>
+                      )}
+                      {!actividadesLoading &&
+                        sesionActividades.length === 0 && (
+                          <p className="text-sm text-slate-500">
+                            Aún no hay actividades asignadas a esta sesión.
+                          </p>
+                        )}
+                      <div className="space-y-3">
+                        {sesionActividades.map((sa) => (
+                          <div
+                            key={sa.sesionActividadId}
+                            className="flex items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                          >
+                            <div>
+                              <p className="font-medium text-slate-900">
+                                <span className="text-slate-400 text-xs mr-2">
+                                  #{sa.orden}
+                                </span>
+                                {sa.actividadNombre}
+                              </p>
+                              {sa.duracionMinutos && (
+                                <p className="text-xs text-slate-500 mt-1">
+                                  ⏱ {sa.duracionMinutos} min
+                                </p>
+                              )}
+                              {sa.nota && (
+                                <p className="text-xs text-slate-500">
+                                  {sa.nota}
+                                </p>
+                              )}
+                            </div>
+                            <button
+                              onClick={() =>
+                                handleQuitarActividad(sa.sesionActividadId)
+                              }
+                              className="shrink-0 rounded-full border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                            >
+                              Quitar
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Panel derecho: agregar actividad */}
+                    <div className="space-y-4">
+                      <div className="bg-white rounded-3xl p-5 shadow-sm">
+                        <h3 className="font-semibold text-slate-900 mb-2">
+                          Agregar actividad
+                        </h3>
+                        <FormField label="Actividad del catálogo">
+                          <select
+                            value={actividadForm.actividadId}
+                            onChange={(e) =>
+                              setActividadForm({
+                                ...actividadForm,
+                                actividadId: e.target.value,
+                              })
+                            }
+                            className={inputCls()}
+                          >
+                            <option value="">
+                              {actividades.length === 0
+                                ? "Sin actividades"
+                                : "Selecciona"}
+                            </option>
+                            {actividades.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.nombre}
+                              </option>
+                            ))}
+                          </select>
+                        </FormField>
+                        <FormField label="Duración (minutos)">
+                          <input
+                            type="number"
+                            min="1"
+                            value={actividadForm.duracionMinutos}
+                            onChange={(e) =>
+                              setActividadForm({
+                                ...actividadForm,
+                                duracionMinutos: e.target.value,
+                              })
+                            }
+                            placeholder="Ej. 20"
+                            className={inputCls()}
+                          />
+                        </FormField>
+                        <FormField label="Nota (opcional)">
+                          <input
+                            value={actividadForm.descripcion}
+                            onChange={(e) =>
+                              setActividadForm({
+                                ...actividadForm,
+                                descripcion: e.target.value,
+                              })
+                            }
+                            placeholder="Ej. Series de 3x10"
+                            className={inputCls()}
+                          />
+                        </FormField>
+                        <PrimaryBtn onClick={handleAgregarActividad}>
+                          Agregar a sesión
+                        </PrimaryBtn>
+                      </div>
+
+                      {/* Crear nueva actividad en el catálogo */}
+                      <div className="bg-white rounded-3xl p-5 shadow-sm">
+                        <button
+                          onClick={() => setShowNewActForm(!showNewActForm)}
+                          className="w-full text-left text-sm font-medium text-blue-600 hover:underline"
+                        >
+                          {showNewActForm
+                            ? "▲ Cancelar"
+                            : "＋ Crear nueva actividad en el catálogo"}
+                        </button>
+                        {showNewActForm && (
+                          <div className="mt-4 space-y-3">
+                            <FormField label="Nombre">
+                              <input
+                                value={newActForm.nombre}
+                                onChange={(e) =>
+                                  setNewActForm({
+                                    ...newActForm,
+                                    nombre: e.target.value,
+                                  })
+                                }
+                                placeholder="Ej. Calentamiento dinámico"
+                                className={inputCls()}
+                              />
+                            </FormField>
+                            <FormField label="Descripción (opcional)">
+                              <textarea
+                                rows={2}
+                                value={newActForm.descripcion}
+                                onChange={(e) =>
+                                  setNewActForm({
+                                    ...newActForm,
+                                    descripcion: e.target.value,
+                                  })
+                                }
+                                className={`resize-none ${inputCls()}`}
+                              />
+                            </FormField>
+                            <PrimaryBtn onClick={handleCrearNuevaActividad}>
+                              Guardar actividad
+                            </PrimaryBtn>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── TAB ASISTENCIA ── */}
+                {sesionTab === "Asistencia" && (
+                  <div className="bg-white rounded-3xl p-6 shadow-sm">
+                    <div className="flex items-center justify-between mb-6">
+                      <div>
+                        <h3 className="font-semibold text-slate-900">
+                          Lista de asistencia
+                        </h3>
+                        <p className="text-sm text-slate-500 mt-1">
+                          Toca el nombre para cambiar el estado. Guarda al
+                          terminar.
+                        </p>
+                      </div>
+                      <button
+                        onClick={handleGuardarAsistencia}
+                        className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+                      >
+                        Guardar asistencia
+                      </button>
+                    </div>
+
+                    {asistenciaLoading && (
+                      <p className="text-sm text-slate-400">
+                        Cargando deportistas...
+                      </p>
+                    )}
+                    {!asistenciaLoading && asistencia.length === 0 && (
+                      <p className="text-sm text-slate-500">
+                        No hay deportistas en este grupo.
+                      </p>
+                    )}
+
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {asistencia.map((a) => (
+                        <button
+                          key={a.deportistaId}
+                          onClick={() => toggleAsistencia(a.deportistaId)}
+                          className={`rounded-2xl border-2 p-4 text-left transition-colors ${
+                            a.estado === "presente"
+                              ? "border-emerald-400 bg-emerald-50"
+                              : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="font-medium text-slate-900 text-sm">
+                              {a.nombre}
+                            </p>
+                            <span
+                              className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+                                a.estado === "presente"
+                                  ? "bg-emerald-200 text-emerald-800"
+                                  : "bg-slate-200 text-slate-600"
+                              }`}
+                            >
+                              {a.estado === "presente" ? "Presente" : "Ausente"}
+                            </span>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+
+                    {/* Resumen */}
+                    {asistencia.length > 0 && (
+                      <div className="mt-6 flex gap-4 rounded-2xl bg-slate-50 p-4 text-sm">
+                        <span className="text-emerald-700 font-medium">
+                          ✅ Presentes:{" "}
+                          {
+                            asistencia.filter((a) => a.estado === "presente")
+                              .length
+                          }
+                        </span>
+                        <span className="text-slate-500">
+                          ❌ Ausentes:{" "}
+                          {
+                            asistencia.filter((a) => a.estado !== "presente")
+                              .length
+                          }
+                        </span>
+                        <span className="text-slate-400">
+                          Total: {asistencia.length}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 
+            {/* ── HORARIOS ── */}
             {activeSection === "Horarios" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Horarios del grupo
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Crea y edita horarios de entrenamiento para tus grupos.
-                </p>
-
-                <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+              <SectionCard
+                title="Horarios del grupo"
+                subtitle="Crea y edita horarios de entrenamiento para tus grupos."
+              >
+                <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
                     <h3 className="font-semibold text-slate-900 mb-4">
                       Horarios existentes
                     </h3>
                     {horariosLoading ? (
-                      <p className="text-slate-500">Cargando horarios...</p>
+                      <p className="text-slate-500 text-sm">
+                        Cargando horarios...
+                      </p>
                     ) : horarios.length === 0 ? (
-                      <p className="text-slate-500">
-                        No hay horarios registrados todavía.
+                      <p className="text-slate-500 text-sm">
+                        No hay horarios registrados.
                       </p>
                     ) : (
-                      <div className="space-y-4">
-                        {horarios.map((horario) => (
-                          <div
-                            key={horario.id}
-                            className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
-                          >
-                            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                              <div>
-                                <p className="font-semibold text-slate-900">
-                                  {(() => {
-                                    // Convert backend day string to display name
-                                    let dayNum = horario.dia;
-                                    if (typeof horario.dia === "string") {
-                                      const lowerDia =
-                                        horario.dia.toLowerCase();
-                                      dayNum =
-                                        ENUM_DIA_MAP[lowerDia] || horario.dia;
-                                    }
-                                    return DIA_NOMBRES[dayNum] || horario.dia;
-                                  })()}{" "}
-                                  • {horario.horaInicio} - {horario.horaFin}
-                                </p>
-                                <p className="text-sm text-slate-500">
-                                  {horario.ubicacion ||
-                                    "Ubicación no especificada"}
-                                </p>
+                      <div className="space-y-3">
+                        {horarios.map((h) => {
+                          const dayNum =
+                            typeof h.dia === "string"
+                              ? ENUM_DIA_MAP[h.dia.toLowerCase()] || h.dia
+                              : h.dia;
+                          return (
+                            <div
+                              key={h.id}
+                              className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm"
+                            >
+                              <div className="flex items-center justify-between gap-4">
+                                <div>
+                                  <p className="font-semibold text-slate-900">
+                                    {DIA_NOMBRES[dayNum] || h.dia} ·{" "}
+                                    {h.horaInicio} – {h.horaFin}
+                                  </p>
+                                  <p className="text-sm text-slate-500">
+                                    {h.ubicacion || "Sin ubicación"}
+                                  </p>
+                                </div>
+                                <div className="flex gap-2">
+                                  <button
+                                    onClick={() => handleHorarioEdit(h)}
+                                    className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
+                                  >
+                                    Editar
+                                  </button>
+                                  <button
+                                    onClick={() => handleHorarioDelete(h.id)}
+                                    className="rounded-full border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
+                                  >
+                                    Eliminar
+                                  </button>
+                                </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <button
-                                  onClick={() => handleHorarioEdit(horario)}
-                                  className="rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-700 hover:bg-slate-100"
-                                >
-                                  Editar
-                                </button>
-                                <button
-                                  onClick={() =>
-                                    handleHorarioDelete(horario.id)
-                                  }
-                                  className="rounded-full border border-red-300 px-3 py-1 text-xs text-red-700 hover:bg-red-50"
-                                >
-                                  Eliminar
-                                </button>
-                              </div>
+                              {h.descripcion && (
+                                <p className="mt-2 text-sm text-slate-600">
+                                  {h.descripcion}
+                                </p>
+                              )}
                             </div>
-                            <p className="mt-3 text-slate-600 text-sm">
-                              {horario.descripcion ||
-                                horario.description ||
-                                horario.desc ||
-                                "Sin descripción"}
-                            </p>
-                            <p className="mt-2 text-sm text-slate-500">
-                              {[
-                                horario.grupoNombre
-                                  ? `Grupo: ${horario.grupoNombre}`
-                                  : null,
-                                horario.categoriaNombre
-                                  ? `Categoría: ${horario.categoriaNombre}`
-                                  : null,
-                              ]
-                                .filter(Boolean)
-                                .join(" · ") || "Sin destinatario"}
-                            </p>
-                          </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>
 
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <div className="flex items-center justify-between gap-4">
-                      <h3 className="font-semibold text-slate-900 mb-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-slate-900">
                         {editingHorario ? "Editar horario" : "Nuevo horario"}
                       </h3>
                       {editingHorario && (
                         <button
                           onClick={resetHorarioForm}
-                          className="text-sm text-slate-500 underline"
+                          className="text-sm text-slate-400 hover:text-slate-600 underline"
                         >
-                          Cancelar edición
+                          Cancelar
                         </button>
                       )}
                     </div>
@@ -952,19 +1353,17 @@ export default function PanelEntrenador() {
                       name="dia"
                       value={horarioForm.dia}
                       onChange={handleHorarioChange}
-                      className="mt-2 mb-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
+                      className={`mt-2 ${inputCls()}`}
                     >
                       <option value="">Selecciona un día</option>
-                      <option value="1">Lunes</option>
-                      <option value="2">Martes</option>
-                      <option value="3">Miércoles</option>
-                      <option value="4">Jueves</option>
-                      <option value="5">Viernes</option>
-                      <option value="6">Sábado</option>
-                      <option value="7">Domingo</option>
+                      {[1, 2, 3, 4, 5, 6, 7].map((n) => (
+                        <option key={n} value={n}>
+                          {DIA_NOMBRES[n]}
+                        </option>
+                      ))}
                     </select>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
+                    <div className="grid grid-cols-2 gap-3 mt-4">
                       <div>
                         <label className="block text-sm font-medium text-slate-700">
                           Hora inicio
@@ -974,7 +1373,7 @@ export default function PanelEntrenador() {
                           name="horaInicio"
                           value={horarioForm.horaInicio}
                           onChange={handleHorarioChange}
-                          className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+                          className={`mt-2 ${inputCls()}`}
                         />
                       </div>
                       <div>
@@ -986,224 +1385,222 @@ export default function PanelEntrenador() {
                           name="horaFin"
                           value={horarioForm.horaFin}
                           onChange={handleHorarioChange}
-                          className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
+                          className={`mt-2 ${inputCls()}`}
                         />
                       </div>
                     </div>
 
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Ubicación
-                    </label>
-                    <input
-                      name="ubicacion"
-                      value={horarioForm.ubicacion}
-                      onChange={handleHorarioChange}
-                      placeholder="Ej. Cancha principal"
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                    />
-
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Descripción
-                    </label>
-                    <textarea
-                      name="descripcion"
-                      value={horarioForm.descripcion}
-                      onChange={handleHorarioChange}
-                      placeholder="Ej. Entrenamiento de velocidad"
-                      rows={4}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 resize-none"
-                    />
-
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Grupo
-                    </label>
-                    <select
-                      name="grupoId"
-                      value={horarioForm.grupoId}
-                      onChange={handleHorarioChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="">Sin grupo específico</option>
-                      {groups.map((g) => (
-                        <option key={g.id} value={String(g.id)}>
-                          {g.nombre}
-                        </option>
-                      ))}
-                    </select>
-
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Categoría (opcional)
-                    </label>
-                    <select
-                      name="categoriaId"
-                      value={horarioForm.categoriaId}
-                      onChange={handleHorarioChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="">Todas las categorías</option>
-                      {categorias.map((cat) => (
-                        <option key={cat.id} value={String(cat.id)}>
-                          {cat.nombre}
-                        </option>
-                      ))}
-                    </select>
-
-                    <button
-                      onClick={handleHorarioSave}
-                      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
-                    >
+                    <FormField label="Ubicación">
+                      <input
+                        name="ubicacion"
+                        value={horarioForm.ubicacion}
+                        onChange={handleHorarioChange}
+                        placeholder="Ej. Cancha principal"
+                        className={inputCls()}
+                      />
+                    </FormField>
+                    <FormField label="Descripción">
+                      <textarea
+                        name="descripcion"
+                        value={horarioForm.descripcion}
+                        onChange={handleHorarioChange}
+                        rows={3}
+                        className={`resize-none ${inputCls()}`}
+                      />
+                    </FormField>
+                    <FormField label="Grupo">
+                      <select
+                        name="grupoId"
+                        value={horarioForm.grupoId}
+                        onChange={handleHorarioChange}
+                        className={inputCls()}
+                      >
+                        <option value="">Sin grupo específico</option>
+                        {groups.map((g) => (
+                          <option key={g.id} value={String(g.id)}>
+                            {g.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Categoría (opcional)">
+                      <select
+                        name="categoriaId"
+                        value={horarioForm.categoriaId}
+                        onChange={handleHorarioChange}
+                        className={inputCls()}
+                      >
+                        <option value="">Todas las categorías</option>
+                        {categorias.map((c) => (
+                          <option key={c.id} value={String(c.id)}>
+                            {c.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <PrimaryBtn onClick={handleHorarioSave}>
                       {editingHorario
                         ? "Actualizar horario"
                         : "Guardar horario"}
-                    </button>
+                    </PrimaryBtn>
                   </div>
                 </div>
-              </div>
+              </SectionCard>
             )}
 
+            {/* ── MÉTRICAS ── */}
             {activeSection === "Métricas" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Métricas de sesión
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Registra rendimiento por deportista y actividad.
-                </p>
-                <div className="mt-6 grid gap-4 lg:grid-cols-[1fr_320px]">
+              <SectionCard
+                title="Métricas de sesión"
+                subtitle="Registra rendimiento por deportista y actividad."
+              >
+                <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
                   <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                    <div className="space-y-4">
-                      <div>
-                        <p className="font-semibold text-slate-900">
-                          Últimas métricas
-                        </p>
+                    <p className="font-semibold text-slate-900">
+                      Últimas métricas
+                    </p>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Visualiza desarrollos recientes.
+                    </p>
+                    <div className="mt-4 space-y-3">
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
                         <p className="text-sm text-slate-500">
-                          Visualiza desarrollos recientes y resultados.
+                          Ana Pérez · Calentamiento
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          Tiempo: 22 min
                         </p>
                       </div>
-                      <div className="grid gap-3">
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-sm text-slate-500">
-                            Ana Pérez • Calentamiento
-                          </p>
-                          <p className="mt-2 font-semibold text-slate-900">
-                            Tiempo: 22 min
-                          </p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                          <p className="text-sm text-slate-500">
-                            Luis Gómez • Fuerza
-                          </p>
-                          <p className="mt-2 font-semibold text-slate-900">
-                            Repeticiones: 18
-                          </p>
-                        </div>
+                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
+                        <p className="text-sm text-slate-500">
+                          Luis Gómez · Fuerza
+                        </p>
+                        <p className="mt-1 font-semibold text-slate-900">
+                          Repeticiones: 18
+                        </p>
                       </div>
                     </div>
                   </div>
-
                   <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-slate-900 mb-4">
+                    <h3 className="font-semibold text-slate-900 mb-2">
                       Registrar métrica
                     </h3>
-                    <label className="block text-sm font-medium text-slate-700">
-                      Deportista
-                    </label>
-                    <select
-                      name="deportista"
-                      value={metricForm.deportista}
-                      onChange={handleMetricChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="" disabled>
-                        {athletes.length === 0
-                          ? "No hay deportistas"
-                          : "Selecciona un deportista"}
-                      </option>
-                      {athletes.map((athlete) => (
-                        <option key={athlete.id} value={athlete.nombre}>
-                          {athlete.nombre}
+                    <FormField label="Deportista">
+                      <select
+                        value={metricForm.deportista}
+                        onChange={(e) =>
+                          setMetricForm({
+                            ...metricForm,
+                            deportista: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
+                      >
+                        <option value="">
+                          {athletes.length === 0
+                            ? "Sin deportistas"
+                            : "Selecciona"}
                         </option>
-                      ))}
-                    </select>
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Actividad
-                    </label>
-                    <select
-                      name="actividad"
-                      value={metricForm.actividad}
-                      onChange={handleMetricChange}
-                      className="mt-2 w-full rounded-xl border border-slate-300 bg-white px-4 py-3"
-                    >
-                      <option value="" disabled>
-                        {activities.length === 0
-                          ? "No hay actividades"
-                          : "Selecciona una actividad"}
-                      </option>
-                      {activities.map((activity) => (
-                        <option key={activity.id} value={activity.nombre}>
-                          {activity.nombre}
+                        {athletes.map((a) => (
+                          <option key={a.id} value={a.nombre}>
+                            {a.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Actividad">
+                      <select
+                        value={metricForm.actividad}
+                        onChange={(e) =>
+                          setMetricForm({
+                            ...metricForm,
+                            actividad: e.target.value,
+                          })
+                        }
+                        className={inputCls()}
+                      >
+                        <option value="">
+                          {actividades.length === 0
+                            ? "Sin actividades"
+                            : "Selecciona"}
                         </option>
-                      ))}
-                    </select>
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Valor
-                    </label>
-                    <input
-                      name="valor"
-                      value={metricForm.valor}
-                      onChange={handleMetricChange}
-                      placeholder="Ej. 18 repeticiones"
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3"
-                    />
-                    <label className="block text-sm font-medium text-slate-700 mt-4">
-                      Comentario
-                    </label>
-                    <textarea
-                      name="comentario"
-                      value={metricForm.comentario}
-                      onChange={handleMetricChange}
-                      rows={3}
-                      className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 resize-none"
-                      placeholder="Observaciones de rendimiento"
-                    />
-                    <button
-                      onClick={handleMetricSubmit}
-                      className="mt-5 w-full rounded-xl bg-blue-600 px-4 py-3 text-white hover:bg-blue-700"
+                        {actividades.map((a) => (
+                          <option key={a.id} value={a.nombre}>
+                            {a.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </FormField>
+                    <FormField label="Valor">
+                      <input
+                        value={metricForm.valor}
+                        onChange={(e) =>
+                          setMetricForm({
+                            ...metricForm,
+                            valor: e.target.value,
+                          })
+                        }
+                        placeholder="Ej. 18 repeticiones"
+                        className={inputCls()}
+                      />
+                    </FormField>
+                    <FormField label="Comentario">
+                      <textarea
+                        rows={3}
+                        value={metricForm.comentario}
+                        onChange={(e) =>
+                          setMetricForm({
+                            ...metricForm,
+                            comentario: e.target.value,
+                          })
+                        }
+                        className={`resize-none ${inputCls()}`}
+                      />
+                    </FormField>
+                    <PrimaryBtn
+                      onClick={() => {
+                        notify("✅ Métrica registrada");
+                        setMetricForm(initialMetricForm);
+                      }}
                     >
                       Registrar métrica
-                    </button>
+                    </PrimaryBtn>
                   </div>
                 </div>
-              </div>
+              </SectionCard>
             )}
 
+            {/* ── RENDIMIENTO ── */}
             {activeSection === "Rendimiento" && (
-              <div className="bg-white rounded-3xl p-6 shadow-sm">
-                <h2 className="text-2xl font-semibold text-slate-900">
-                  Rendimiento
-                </h2>
-                <p className="mt-2 text-slate-500">
-                  Visualiza progreso y comparaciones de deportistas.
-                </p>
-                <div className="mt-6 grid gap-4 lg:grid-cols-2">
-                  {performanceReports.map((report) => (
-                    <div
-                      key={report.id}
-                      className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
-                    >
-                      <h3 className="font-semibold text-slate-900">
-                        {report.deportista}
-                      </h3>
-                      <p className="mt-2 text-sm text-slate-500">
-                        {report.detalle}
-                      </p>
-                      <p className="mt-4 text-lg font-semibold text-blue-700">
-                        {report.progreso}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <SectionCard
+                title="Rendimiento"
+                subtitle="Visualiza progreso y comparaciones de deportistas."
+              >
+                {performanceReports.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    No hay reportes de rendimiento disponibles aún.
+                  </p>
+                ) : (
+                  <div className="grid gap-4 lg:grid-cols-2">
+                    {performanceReports.map((r) => (
+                      <div
+                        key={r.id}
+                        className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                      >
+                        <h3 className="font-semibold text-slate-900">
+                          {r.deportista}
+                        </h3>
+                        <p className="mt-2 text-sm text-slate-500">
+                          {r.detalle}
+                        </p>
+                        <p className="mt-4 text-lg font-semibold text-blue-700">
+                          {r.progreso}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
             )}
           </main>
         </div>
