@@ -1,6 +1,8 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { apiRequest } from "../services/api";
+import { usuarioService } from "../services/Usuarios.service";
+import InvitacionesClubes from "../components/InvitacionesClubes";
 
 const getUserFullName = (profile) => {
   if (!profile) return "";
@@ -31,6 +33,17 @@ export default function UserProfile() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editedUser, setEditedUser] = useState({});
   const [saving, setSaving] = useState(false);
+  const [invitaciones, setInvitaciones] = useState([]);
+  const [loadingInvitaciones, setLoadingInvitaciones] = useState(true);
+  const [selectedInvitacion, setSelectedInvitacion] = useState(null);
+  const [acceptData, setAcceptData] = useState({
+    peso: "",
+    estatura: "",
+    experiencia: "",
+    especialidad: "",
+  });
+  const [actionError, setActionError] = useState(null);
+  const [actionLoading, setActionLoading] = useState(false);
 
   // eslint-disable-next-line no-unused-vars
   const normalizeRole = (role) => {
@@ -99,7 +112,20 @@ export default function UserProfile() {
       }
     };
 
+    const fetchInvitaciones = async () => {
+      try {
+        setLoadingInvitaciones(true);
+        const data = await usuarioService.getInvitaciones();
+        setInvitaciones(data);
+      } catch (err) {
+        console.error("Error al cargar invitaciones:", err);
+      } finally {
+        setLoadingInvitaciones(false);
+      }
+    };
+
     fetchUserData();
+    fetchInvitaciones();
   }, [navigate]);
 
   const getInitials = (name) => {
@@ -208,6 +234,97 @@ export default function UserProfile() {
     }
   };
 
+  const fetchInvitaciones = async () => {
+    try {
+      setLoadingInvitaciones(true);
+      const data = await usuarioService.getInvitaciones();
+      setInvitaciones(data);
+    } catch (err) {
+      console.error("Error al cargar invitaciones:", err);
+    } finally {
+      setLoadingInvitaciones(false);
+    }
+  };
+
+  const handleInvitacionAction = async (id, accion, extraFields = {}) => {
+    try {
+      setError(null);
+      setActionError(null);
+      setActionLoading(true);
+      await usuarioService.resolverInvitacion(id, accion, extraFields);
+      await fetchInvitaciones();
+    } catch (err) {
+      const message = err.message || "No se pudo actualizar la invitación";
+      setError(message);
+      setActionError(message);
+      throw err;
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleRejectInvitacion = async (id) => {
+    await handleInvitacionAction(id, "rechazado");
+  };
+
+  const handleOpenAccept = (invitacion) => {
+    setActionError(null);
+    setSelectedInvitacion(invitacion);
+    setAcceptData({
+      peso: "",
+      estatura: "",
+      experiencia: "",
+      especialidad: "",
+    });
+  };
+
+  const handleAcceptInvitacion = async () => {
+    if (!selectedInvitacion) return;
+
+    const rol = String(selectedInvitacion.rol || "").toLowerCase();
+    const payload = {
+      peso: null,
+      estatura: null,
+      experiencia: null,
+      especialidad: null,
+    };
+
+    if (rol === "deportista") {
+      payload.peso = acceptData.peso ? Number(acceptData.peso) : null;
+      payload.estatura = acceptData.estatura
+        ? Number(acceptData.estatura)
+        : null;
+    }
+
+    if (rol === "entrenador") {
+      payload.experiencia = acceptData.experiencia?.trim() || null;
+      payload.especialidad = acceptData.especialidad?.trim() || null;
+    }
+
+    try {
+      await handleInvitacionAction(selectedInvitacion.id, "aceptado", payload);
+      setSelectedInvitacion(null);
+    } catch {
+      // Error already handled in handleInvitacionAction
+    }
+  };
+
+  const handleAcceptFieldChange = (event) => {
+    const { name, value } = event.target;
+    setAcceptData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleCloseAcceptModal = () => {
+    setSelectedInvitacion(null);
+    setAcceptData({
+      peso: "",
+      estatura: "",
+      experiencia: "",
+      especialidad: "",
+    });
+    setActionError(null);
+  };
+
   const handleExploreClubs = () => {
     navigate("/clubs");
   };
@@ -281,106 +398,121 @@ export default function UserProfile() {
           <span>Volver</span>
         </button>
       </div>
-      <div className="max-w-3xl mx-auto space-y-6">
-        <div className="bg-white rounded-[32px] shadow-[0_35px_80px_rgba(15,23,42,0.08)] p-8">
-          <div className="flex flex-col items-center gap-4">
-            <div className="w-28 h-28 rounded-full overflow-hidden bg-slate-100 ring-4 ring-white shadow-sm flex items-center justify-center">
-              {user?.photoUrl ? (
-                <img
-                  src={user.photoUrl}
-                  alt="Foto de perfil"
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <span className="text-4xl font-semibold text-sky-600">
-                  {getInitials(user?.name)}
-                </span>
-              )}
+      <div className="max-w-7xl mx-auto space-y-6 pt-8">
+        <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-start">
+          <div className="space-y-6">
+            <div className="bg-white rounded-[32px] shadow-[0_35px_80px_rgba(15,23,42,0.08)] p-8 pt-28 sm:pt-24">
+              <div className="flex flex-col items-center gap-4">
+                <div className="w-28 h-28 rounded-full overflow-hidden bg-slate-100 ring-4 ring-white shadow-sm flex items-center justify-center">
+                  {user?.photoUrl ? (
+                    <img
+                      src={user.photoUrl}
+                      alt="Foto de perfil"
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <span className="text-4xl font-semibold text-sky-600">
+                      {getInitials(user?.name)}
+                    </span>
+                  )}
+                </div>
+                <div className="text-center">
+                  <h1 className="text-3xl font-semibold text-slate-900">
+                    {user?.name}
+                  </h1>
+                  <p className="mt-2 text-slate-500">{user?.email}</p>
+                </div>
+                <button
+                  onClick={handleEditProfile}
+                  className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                >
+                  Editar perfil
+                </button>
+              </div>
             </div>
+
+            <div className="bg-white rounded-[28px] shadow p-8">
+              <div className="mb-6">
+                <h2 className="text-xl font-semibold text-slate-900">
+                  Información personal
+                </h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Revisa tus datos y mantén tu perfil actualizado.
+                </p>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
+                    <span className="text-xl">📞</span>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                      Teléfono
+                    </p>
+                    <p className="mt-2 text-base font-medium text-slate-900">
+                      {user?.telefono || "No registrado"}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
+                    <span className="text-xl">📅</span>
+                  </div>
+                  <div>
+                    <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
+                      Fecha de nacimiento
+                    </p>
+                    <p className="mt-2 text-base font-medium text-slate-900">
+                      {formatDate(user?.birthDate)}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-[32px] bg-gradient-to-r from-sky-600 to-blue-600 p-8 text-white shadow-lg">
+              <div className="max-w-2xl">
+                <h2 className="text-2xl font-semibold">Explorar clubes</h2>
+                <p className="mt-2 text-sm text-slate-100">
+                  Descubre clubes deportivos en tu zona y únete a la comunidad.
+                </p>
+                <button
+                  onClick={handleExploreClubs}
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
+                >
+                  Ver clubes disponibles →
+                </button>
+                <button
+                  onClick={handleMyClub}
+                  className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
+                >
+                  Ir a mi club →
+                </button>
+              </div>
+            </div>
+
             <div className="text-center">
-              <h1 className="text-3xl font-semibold text-slate-900">
-                {user?.name}
-              </h1>
-              <p className="mt-2 text-slate-500">{user?.email}</p>
-            </div>
-            <button
-              onClick={handleEditProfile}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-6 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-            >
-              Editar perfil
-            </button>
-          </div>
-        </div>
-
-        <div className="bg-white rounded-[28px] shadow p-8">
-          <div className="mb-6">
-            <h2 className="text-xl font-semibold text-slate-900">
-              Información personal
-            </h2>
-            <p className="mt-2 text-sm text-slate-500">
-              Revisa tus datos y mantén tu perfil actualizado.
-            </p>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
-                <span className="text-xl">📞</span>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                  Teléfono
-                </p>
-                <p className="mt-2 text-base font-medium text-slate-900">
-                  {user?.telefono || "No registrado"}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex gap-4 rounded-3xl border border-slate-200 bg-slate-50 p-5">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-white text-sky-600 shadow-sm">
-                <span className="text-xl">📅</span>
-              </div>
-              <div>
-                <p className="text-xs uppercase tracking-[0.16em] text-slate-400">
-                  Fecha de nacimiento
-                </p>
-                <p className="mt-2 text-base font-medium text-slate-900">
-                  {formatDate(user?.birthDate)}
-                </p>
-              </div>
+              <button
+                onClick={logout}
+                className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-7 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+              >
+                Cerrar sesión
+              </button>
             </div>
           </div>
-        </div>
 
-        <div className="rounded-[32px] bg-gradient-to-r from-sky-600 to-blue-600 p-8 text-white shadow-lg">
-          <div className="max-w-2xl">
-            <h2 className="text-2xl font-semibold">Explorar clubes</h2>
-            <p className="mt-2 text-sm text-slate-100">
-              Descubre clubes deportivos en tu zona y únete a la comunidad.
-            </p>
-            <button
-              onClick={handleExploreClubs}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
-            >
-              Ver clubes disponibles →
-            </button>
-            <button
-              onClick={handleMyClub}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-white px-6 py-3 text-sm font-semibold text-blue-600 shadow-md transition hover:bg-slate-100"
-            >
-              Ir a mi club →
-            </button>
+          <div className="space-y-6">
+            <div className="sticky top-24">
+              <InvitacionesClubes
+                invitaciones={invitaciones}
+                loading={loadingInvitaciones}
+                onAccept={(item) => handleOpenAccept(item)}
+                onReject={(id) => handleRejectInvitacion(id)}
+              />
+            </div>
           </div>
-        </div>
-
-        <div className="text-center">
-          <button
-            onClick={logout}
-            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-7 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
-          >
-            Cerrar sesión
-          </button>
         </div>
       </div>
 
@@ -485,6 +617,112 @@ export default function UserProfile() {
                 className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {saving ? "Guardando..." : "Guardar cambios"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {selectedInvitacion && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4">
+          <div className="w-full max-w-xl rounded-[32px] bg-white p-8 shadow-[0_35px_90px_rgba(15,23,42,0.18)] ring-1 ring-slate-200">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.24em] text-sky-600">
+                  Confirmar invitación
+                </p>
+                <h3 className="text-2xl font-semibold text-slate-900">
+                  Aceptar invitación al club {selectedInvitacion.clubName}
+                </h3>
+                <p className="mt-2 text-sm text-slate-500">
+                  Completa los datos necesarios para aceptar la invitación como{" "}
+                  {selectedInvitacion.rol}.
+                </p>
+              </div>
+              <button
+                onClick={handleCloseAcceptModal}
+                className="rounded-full bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200"
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="mt-6 grid gap-4">
+              {String(selectedInvitacion.rol || "").toLowerCase() ===
+                "deportista" && (
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-medium">Peso (kg)</span>
+                    <input
+                      type="number"
+                      name="peso"
+                      step="0.1"
+                      value={acceptData.peso}
+                      onChange={handleAcceptFieldChange}
+                      className="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-medium">Estatura (cm)</span>
+                    <input
+                      type="number"
+                      name="estatura"
+                      value={acceptData.estatura}
+                      onChange={handleAcceptFieldChange}
+                      className="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {String(selectedInvitacion.rol || "").toLowerCase() ===
+                "entrenador" && (
+                <div className="grid gap-4">
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-medium">Años de experiencia</span>
+                    <input
+                      type="text"
+                      name="experiencia"
+                      value={acceptData.experiencia}
+                      onChange={handleAcceptFieldChange}
+                      className="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                  <label className="space-y-2 text-sm text-slate-700">
+                    <span className="font-medium">Especialidad</span>
+                    <input
+                      type="text"
+                      name="especialidad"
+                      value={acceptData.especialidad}
+                      onChange={handleAcceptFieldChange}
+                      className="w-full rounded-[28px] border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sky-400 focus:ring-2 focus:ring-sky-100"
+                    />
+                  </label>
+                </div>
+              )}
+
+              {actionError && (
+                <div className="rounded-[28px] border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+                  {actionError}
+                </div>
+              )}
+            </div>
+
+            <div className="mt-8 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={handleCloseAcceptModal}
+                className="rounded-full border border-slate-200 bg-white px-6 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleAcceptInvitacion}
+                disabled={actionLoading}
+                className="rounded-full bg-sky-600 px-6 py-3 text-sm font-semibold text-white transition hover:bg-sky-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {actionLoading ? "Aceptando..." : "Aceptar invitación"}
               </button>
             </div>
           </div>
