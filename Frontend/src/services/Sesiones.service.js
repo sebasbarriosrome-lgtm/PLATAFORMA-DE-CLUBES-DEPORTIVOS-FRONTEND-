@@ -66,4 +66,49 @@ export const sesionesService = {
       method: "POST",
       body: JSON.stringify(lista),
     }),
+
+  // ─────────────────────────────────────────────
+  // MÉTRICAS
+  // ─────────────────────────────────────────────
+
+  getMetricasBySesion: (sesionId) =>
+    apiRequest(`/entrenador/sesiones/${sesionId}/metricas`),
+
+  getMetricasByDeportista: (deportistaId) =>
+    apiRequest(`/entrenador/deportistas/${deportistaId}/metricas`),
+
+  registrarMetrica: (sesionId, data) =>
+    apiRequest(`/entrenador/sesiones/${sesionId}/metricas`, {
+      method: "POST",
+      body: JSON.stringify(data),
+    }),
+
+  eliminarMetrica: (metricaId) =>
+    apiRequest(`/entrenador/metricas/${metricaId}`, {
+      method: "DELETE",
+    }),
+
+  // ─────────────────────────────────────────────
+  // RENDIMIENTO
+  // ─────────────────────────────────────────────
+
+  getEvolucionDeportista: (deportistaId, actividadId) => {
+    const params = actividadId ? `?actividadId=${actividadId}` : "";
+    return apiRequest(
+      `/entrenador/rendimiento/evolucion/${deportistaId}${params}`,
+    );
+  },
+
+  getComparacionSesion: (sesionId, actividadId) => {
+    const params = actividadId ? `?actividadId=${actividadId}` : "";
+    return apiRequest(
+      `/entrenador/rendimiento/comparacion/${sesionId}${params}`,
+    );
+  },
+
+  getAsistenciaGrupo: (grupoId) =>
+    apiRequest(`/entrenador/rendimiento/asistencia/${grupoId}`),
+
+  getPromediosSesiones: (grupoId) =>
+    apiRequest(`/entrenador/rendimiento/promedios/${grupoId}`),
 };

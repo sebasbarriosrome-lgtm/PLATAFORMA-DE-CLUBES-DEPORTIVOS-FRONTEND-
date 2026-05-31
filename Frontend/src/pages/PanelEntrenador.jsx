@@ -3,6 +3,19 @@ import { useNavigate } from "react-router-dom";
 import { clubsService } from "../services/Clubs.service";
 import { sesionesService } from "../services/Sesiones.service";
 
+import {
+  LineChart,
+  Line,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  Legend,
+  ResponsiveContainer,
+} from "recharts";
+
 // ─── Constantes ───────────────────────────────────────────────────────────────
 
 const sections = [
@@ -74,10 +87,14 @@ const initialActividadForm = {
 };
 const initialNewActForm = { nombre: "", descripcion: "" };
 const initialMetricForm = {
-  deportista: "",
-  actividad: "",
-  valor: "",
-  comentario: "",
+  deportistaId: "",
+  sesionActividadId: "",
+  tiempo: "",
+  distancia: "",
+  velocidad: "",
+  tecnica: "",
+  rendimientoFisico: "",
+  observaciones: "",
 };
 
 // ─── Helpers UI ───────────────────────────────────────────────────────────────
@@ -149,7 +166,7 @@ export default function PanelEntrenador() {
   const [sesiones, setSesiones] = useState([]);
   const [sesionesLoading, setSesionesLoading] = useState(false);
   const [sesionForm, setSesionForm] = useState(initialSesionForm);
-  const [selectedSesion, setSelectedSesion] = useState(null); // sesión abierta en detalle
+  const [selectedSesion, setSelectedSesion] = useState(null);
   const [sesionTab, setSesionTab] = useState("Actividades");
 
   // actividades del catálogo
@@ -168,7 +185,20 @@ export default function PanelEntrenador() {
 
   // métricas
   const [metricForm, setMetricForm] = useState(initialMetricForm);
-  const [performanceReports] = useState([]);
+  const [metricas, setMetricas] = useState([]);
+  const [metricasLoading, setMetricasLoading] = useState(false);
+  const [selectedSesionMetrica, setSelectedSesionMetrica] = useState(null);
+  const [sesionesParaMetricas, setSesionesParaMetricas] = useState([]);
+
+  // rendimiento
+  const [rendGrafica, setRendGrafica] = useState("evolucion");
+  const [rendGrupoId, setRendGrupoId] = useState("");
+  const [rendDeportistaId, setRendDeportistaId] = useState("");
+  const [rendSesionId, setRendSesionId] = useState("");
+  const [rendActividadId, setRendActividadId] = useState("");
+  const [rendData, setRendData] = useState([]);
+  const [rendLoading, setRendLoading] = useState(false);
+  const [sesionesParaRendimiento, setSesionesParaRendimiento] = useState([]);
 
   // ── Helpers de notificación ──────────────────────────────────────────────
 
@@ -228,6 +258,30 @@ export default function PanelEntrenador() {
   useEffect(() => {
     if (activeSection === "Horarios") cargarHorarios();
     if (activeSection === "Sesiones") cargarSesionesYActividades();
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection === "Métricas") {
+      sesionesService
+        .getSesiones()
+        .then((ses) => setSesionesParaMetricas(Array.isArray(ses) ? ses : []))
+        .catch(() => setSesionesParaMetricas([]));
+    }
+  }, [activeSection]);
+
+  useEffect(() => {
+    if (activeSection === "Rendimiento") {
+      // Cargar sesiones y actividades para los filtros de rendimiento
+      Promise.all([
+        sesionesService.getSesiones(),
+        sesionesService.getActividades(),
+      ])
+        .then(([ses, acts]) => {
+          setSesionesParaRendimiento(Array.isArray(ses) ? ses : []);
+          setActividades(Array.isArray(acts) ? acts : []);
+        })
+        .catch(() => {});
+    }
   }, [activeSection]);
 
   const cargarHorarios = async () => {
@@ -321,7 +375,6 @@ export default function PanelEntrenador() {
       await sesionesService.actualizarEstadoSesion(sesionId, estado);
       notify("✅ Estado actualizado");
       await cargarSesionesYActividades();
-      // refrescar sesión seleccionada si está abierta
       if (selectedSesion?.id === sesionId) {
         setSelectedSesion((prev) => ({ ...prev, estado }));
       }
@@ -524,6 +577,132 @@ export default function PanelEntrenador() {
     }
   };
 
+  // ── Métricas ─────────────────────────────────────────────────────────────
+
+  const cargarMetricasDeSesion = async (sesionId) => {
+    setMetricasLoading(true);
+    try {
+      const data = await sesionesService.getMetricasBySesion(sesionId);
+      setMetricas(Array.isArray(data) ? data : []);
+    } catch {
+      setMetricas([]);
+    } finally {
+      setMetricasLoading(false);
+    }
+  };
+
+  const handleSeleccionarSesionMetrica = async (sesion) => {
+    setSelectedSesionMetrica(sesion);
+    setMetricForm(initialMetricForm);
+    await Promise.all([
+      cargarMetricasDeSesion(sesion.id),
+      cargarActividadesDeSesion(sesion.id),
+      cargarAsistenciaDeSesion(sesion.id),
+    ]);
+  };
+
+  const handleRegistrarMetrica = async () => {
+    if (!selectedSesionMetrica) {
+      notify("❌ Selecciona una sesión");
+      return;
+    }
+    if (!metricForm.deportistaId || !metricForm.sesionActividadId) {
+      notify("❌ Selecciona deportista y actividad");
+      return;
+    }
+    const camposValor = [
+      metricForm.tiempo,
+      metricForm.distancia,
+      metricForm.velocidad,
+      metricForm.tecnica,
+      metricForm.rendimientoFisico,
+    ];
+    if (camposValor.every((v) => !v)) {
+      notify("❌ Ingresa al menos un valor de rendimiento");
+      return;
+    }
+    try {
+      await sesionesService.registrarMetrica(selectedSesionMetrica.id, {
+        deportistaId: Number(metricForm.deportistaId),
+        sesionActividadId: Number(metricForm.sesionActividadId),
+        tiempo: metricForm.tiempo || null,
+        distancia: metricForm.distancia || null,
+        velocidad: metricForm.velocidad || null,
+        tecnica: metricForm.tecnica || null,
+        rendimientoFisico: metricForm.rendimientoFisico || null,
+        observaciones: metricForm.observaciones,
+      });
+      notify("✅ Métrica registrada");
+      setMetricForm(initialMetricForm);
+      await cargarMetricasDeSesion(selectedSesionMetrica.id);
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  const handleEliminarMetrica = async (metricaId) => {
+    try {
+      await sesionesService.eliminarMetrica(metricaId);
+      notify("✅ Métrica eliminada");
+      await cargarMetricasDeSesion(selectedSesionMetrica.id);
+    } catch (err) {
+      notify("❌ " + err.message);
+    }
+  };
+
+  // ── Rendimiento ──────────────────────────────────────────────────────────
+
+  const cargarRendimiento = async () => {
+    setRendLoading(true);
+    setRendData([]);
+    try {
+      let data = [];
+      if (rendGrafica === "evolucion") {
+        if (!rendDeportistaId) {
+          notify("❌ Selecciona un deportista");
+          setRendLoading(false);
+          return;
+        }
+        data = await sesionesService.getEvolucionDeportista(
+          rendDeportistaId,
+          rendActividadId || null,
+        );
+      } else if (rendGrafica === "comparacion") {
+        if (!rendSesionId) {
+          notify("❌ Selecciona una sesión");
+          setRendLoading(false);
+          return;
+        }
+        data = await sesionesService.getComparacionSesion(
+          rendSesionId,
+          rendActividadId || null,
+        );
+      } else if (rendGrafica === "asistencia") {
+        if (!rendGrupoId) {
+          notify("❌ Selecciona un grupo");
+          setRendLoading(false);
+          return;
+        }
+        data = await sesionesService.getAsistenciaGrupo(rendGrupoId);
+      } else if (rendGrafica === "promedios") {
+        if (!rendGrupoId) {
+          notify("❌ Selecciona un grupo");
+          setRendLoading(false);
+          return;
+        }
+        data = await sesionesService.getPromediosSesiones(rendGrupoId);
+      }
+      setRendData(Array.isArray(data) ? data : []);
+      if (Array.isArray(data) && data.length === 0) {
+        notify("⚠️ No hay datos para los filtros seleccionados");
+      }
+    } catch (err) {
+      notify("❌ " + err.message);
+    } finally {
+      setRendLoading(false);
+    }
+  };
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
@@ -602,7 +781,9 @@ export default function PanelEntrenador() {
                 className={`rounded-3xl px-4 py-3 text-sm ${
                   successMessage.startsWith("❌")
                     ? "border border-red-200 bg-red-50 text-red-700"
-                    : "border border-emerald-200 bg-emerald-50 text-emerald-700"
+                    : successMessage.startsWith("⚠️")
+                      ? "border border-amber-200 bg-amber-50 text-amber-700"
+                      : "border border-emerald-200 bg-emerald-50 text-emerald-700"
                 }`}
               >
                 {successMessage}
@@ -714,7 +895,6 @@ export default function PanelEntrenador() {
                     </h3>
                     <FormField label="Deportista">
                       <select
-                        name="deportistaId"
                         value={assignmentForm.deportistaId}
                         onChange={(e) =>
                           setAssignmentForm({
@@ -738,7 +918,6 @@ export default function PanelEntrenador() {
                     </FormField>
                     <FormField label="Grupo">
                       <select
-                        name="grupoId"
                         value={assignmentForm.grupoId}
                         onChange={(e) =>
                           setAssignmentForm({
@@ -758,7 +937,6 @@ export default function PanelEntrenador() {
                     </FormField>
                     <FormField label="Categoría">
                       <select
-                        name="categoriaId"
                         value={assignmentForm.categoriaId}
                         onChange={(e) =>
                           setAssignmentForm({
@@ -784,16 +962,13 @@ export default function PanelEntrenador() {
               </SectionCard>
             )}
 
-            {/* ══════════════════════════════════════════════
-                ── SESIONES (sección unificada) ──
-                ══════════════════════════════════════════════ */}
+            {/* ── SESIONES ── */}
             {activeSection === "Sesiones" && !selectedSesion && (
               <SectionCard
                 title="Sesiones de entrenamiento"
                 subtitle="Crea sesiones para tus grupos. Haz clic en una para gestionar actividades y asistencia."
               >
                 <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-                  {/* Lista de sesiones */}
                   <div className="space-y-3">
                     {sesionesLoading && (
                       <p className="text-sm text-slate-400">
@@ -842,7 +1017,6 @@ export default function PanelEntrenador() {
                     ))}
                   </div>
 
-                  {/* Formulario nueva sesión */}
                   <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
                     <h3 className="font-semibold text-slate-900">
                       Nueva sesión
@@ -942,7 +1116,6 @@ export default function PanelEntrenador() {
             {/* ── DETALLE DE SESIÓN ── */}
             {activeSection === "Sesiones" && selectedSesion && (
               <div className="space-y-4">
-                {/* Header detalle */}
                 <div className="bg-white rounded-3xl p-6 shadow-sm">
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
@@ -961,7 +1134,6 @@ export default function PanelEntrenador() {
                           ` · ${selectedSesion.descripcion}`}
                       </p>
                     </div>
-                    {/* Cambiar estado */}
                     <div className="flex items-center gap-2">
                       <span
                         className={`rounded-full px-3 py-1 text-xs font-medium ${ESTADO_COLORS[selectedSesion.estado] || "bg-slate-100 text-slate-600"}`}
@@ -991,7 +1163,6 @@ export default function PanelEntrenador() {
                     </div>
                   </div>
 
-                  {/* Sub-tabs */}
                   <div className="mt-6 flex gap-1 rounded-2xl bg-slate-100 p-1 w-fit">
                     {SESSION_TABS.map((tab) => (
                       <button
@@ -1011,10 +1182,8 @@ export default function PanelEntrenador() {
                   </div>
                 </div>
 
-                {/* ── TAB ACTIVIDADES ── */}
                 {sesionTab === "Actividades" && (
                   <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-                    {/* Lista actividades de la sesión */}
                     <div className="bg-white rounded-3xl p-6 shadow-sm">
                       <h3 className="font-semibold text-slate-900 mb-4">
                         Actividades de esta sesión
@@ -1065,7 +1234,6 @@ export default function PanelEntrenador() {
                       </div>
                     </div>
 
-                    {/* Panel derecho: agregar actividad */}
                     <div className="space-y-4">
                       <div className="bg-white rounded-3xl p-5 shadow-sm">
                         <h3 className="font-semibold text-slate-900 mb-2">
@@ -1127,7 +1295,6 @@ export default function PanelEntrenador() {
                         </PrimaryBtn>
                       </div>
 
-                      {/* Crear nueva actividad en el catálogo */}
                       <div className="bg-white rounded-3xl p-5 shadow-sm">
                         <button
                           onClick={() => setShowNewActForm(!showNewActForm)}
@@ -1175,7 +1342,6 @@ export default function PanelEntrenador() {
                   </div>
                 )}
 
-                {/* ── TAB ASISTENCIA ── */}
                 {sesionTab === "Asistencia" && (
                   <div className="bg-white rounded-3xl p-6 shadow-sm">
                     <div className="flex items-center justify-between mb-6">
@@ -1236,7 +1402,6 @@ export default function PanelEntrenador() {
                       ))}
                     </div>
 
-                    {/* Resumen */}
                     {asistencia.length > 0 && (
                       <div className="mt-6 flex gap-4 rounded-2xl bg-slate-50 p-4 text-sm">
                         <span className="text-emerald-700 font-medium">
@@ -1452,119 +1617,285 @@ export default function PanelEntrenador() {
             {activeSection === "Métricas" && (
               <SectionCard
                 title="Métricas de sesión"
-                subtitle="Registra rendimiento por deportista y actividad."
+                subtitle="Selecciona una sesión para registrar o consultar métricas por deportista y actividad."
               >
-                <div className="grid gap-4 lg:grid-cols-[1fr_320px]">
-                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-6">
-                    <p className="font-semibold text-slate-900">
-                      Últimas métricas
+                <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
+                  <div className="space-y-2">
+                    <p className="text-sm font-medium text-slate-600 mb-3">
+                      Sesiones
                     </p>
-                    <p className="text-sm text-slate-500 mt-1">
-                      Visualiza desarrollos recientes.
-                    </p>
-                    <div className="mt-4 space-y-3">
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                        <p className="text-sm text-slate-500">
-                          Ana Pérez · Calentamiento
+                    {sesionesParaMetricas.length === 0 && (
+                      <p className="text-sm text-slate-400">
+                        Sin sesiones disponibles.
+                      </p>
+                    )}
+                    {sesionesParaMetricas.map((s) => (
+                      <button
+                        key={s.id}
+                        onClick={() => handleSeleccionarSesionMetrica(s)}
+                        className={`w-full text-left rounded-2xl border p-3 transition-colors text-sm ${
+                          selectedSesionMetrica?.id === s.id
+                            ? "border-blue-400 bg-blue-50"
+                            : "border-slate-200 bg-slate-50 hover:border-slate-300"
+                        }`}
+                      >
+                        <p className="font-semibold text-slate-900 truncate">
+                          {s.grupoNombre}
                         </p>
-                        <p className="mt-1 font-semibold text-slate-900">
-                          Tiempo: 22 min
-                        </p>
-                      </div>
-                      <div className="rounded-2xl border border-slate-200 bg-white p-4">
-                        <p className="text-sm text-slate-500">
-                          Luis Gómez · Fuerza
-                        </p>
-                        <p className="mt-1 font-semibold text-slate-900">
-                          Repeticiones: 18
-                        </p>
-                      </div>
-                    </div>
+                        <p className="text-slate-500">{s.fecha}</p>
+                        <span
+                          className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${ESTADO_COLORS[s.estado] || "bg-slate-100 text-slate-600"}`}
+                        >
+                          {s.estado}
+                        </span>
+                      </button>
+                    ))}
                   </div>
-                  <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
-                    <h3 className="font-semibold text-slate-900 mb-2">
-                      Registrar métrica
-                    </h3>
-                    <FormField label="Deportista">
-                      <select
-                        value={metricForm.deportista}
-                        onChange={(e) =>
-                          setMetricForm({
-                            ...metricForm,
-                            deportista: e.target.value,
-                          })
-                        }
-                        className={inputCls()}
-                      >
-                        <option value="">
-                          {athletes.length === 0
-                            ? "Sin deportistas"
-                            : "Selecciona"}
-                        </option>
-                        {athletes.map((a) => (
-                          <option key={a.id} value={a.nombre}>
-                            {a.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </FormField>
-                    <FormField label="Actividad">
-                      <select
-                        value={metricForm.actividad}
-                        onChange={(e) =>
-                          setMetricForm({
-                            ...metricForm,
-                            actividad: e.target.value,
-                          })
-                        }
-                        className={inputCls()}
-                      >
-                        <option value="">
-                          {actividades.length === 0
-                            ? "Sin actividades"
-                            : "Selecciona"}
-                        </option>
-                        {actividades.map((a) => (
-                          <option key={a.id} value={a.nombre}>
-                            {a.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </FormField>
-                    <FormField label="Valor">
-                      <input
-                        value={metricForm.valor}
-                        onChange={(e) =>
-                          setMetricForm({
-                            ...metricForm,
-                            valor: e.target.value,
-                          })
-                        }
-                        placeholder="Ej. 18 repeticiones"
-                        className={inputCls()}
-                      />
-                    </FormField>
-                    <FormField label="Comentario">
-                      <textarea
-                        rows={3}
-                        value={metricForm.comentario}
-                        onChange={(e) =>
-                          setMetricForm({
-                            ...metricForm,
-                            comentario: e.target.value,
-                          })
-                        }
-                        className={`resize-none ${inputCls()}`}
-                      />
-                    </FormField>
-                    <PrimaryBtn
-                      onClick={() => {
-                        notify("✅ Métrica registrada");
-                        setMetricForm(initialMetricForm);
-                      }}
-                    >
-                      Registrar métrica
-                    </PrimaryBtn>
+
+                  <div className="space-y-6">
+                    {!selectedSesionMetrica ? (
+                      <div className="rounded-3xl border border-slate-200 bg-slate-50 p-8 text-center">
+                        <p className="text-slate-400">
+                          ← Selecciona una sesión para ver o registrar métricas.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="rounded-3xl border border-slate-200 bg-slate-50 p-5">
+                          <div className="flex items-center justify-between mb-4">
+                            <div>
+                              <p className="font-semibold text-slate-900">
+                                Métricas — {selectedSesionMetrica.grupoNombre}
+                              </p>
+                              <p className="text-sm text-slate-500">
+                                {selectedSesionMetrica.fecha}
+                              </p>
+                            </div>
+                            {metricasLoading && (
+                              <p className="text-xs text-slate-400">
+                                Cargando...
+                              </p>
+                            )}
+                          </div>
+
+                          {metricas.length === 0 && !metricasLoading && (
+                            <p className="text-sm text-slate-400">
+                              No hay métricas registradas para esta sesión.
+                            </p>
+                          )}
+
+                          <div className="space-y-3">
+                            {metricas.map((m) => (
+                              <div
+                                key={m.id}
+                                className="rounded-2xl border border-slate-200 bg-white p-4 flex items-start justify-between gap-4"
+                              >
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-slate-900 text-sm">
+                                    {m.deportistaNombre}
+                                  </p>
+                                  <p className="text-xs text-blue-600 font-medium mt-0.5">
+                                    {m.actividadNombre}
+                                  </p>
+                                  <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-600">
+                                    {m.tiempo != null && (
+                                      <span>⏱ {m.tiempo} min</span>
+                                    )}
+                                    {m.distancia != null && (
+                                      <span>📏 {m.distancia} m</span>
+                                    )}
+                                    {m.velocidad != null && (
+                                      <span>💨 {m.velocidad} m/s</span>
+                                    )}
+                                    {m.tecnica != null && (
+                                      <span>🎯 Técnica: {m.tecnica}/10</span>
+                                    )}
+                                    {m.rendimientoFisico != null && (
+                                      <span>
+                                        💪 Rendimiento: {m.rendimientoFisico}/10
+                                      </span>
+                                    )}
+                                  </div>
+                                  {m.observaciones && (
+                                    <p className="mt-1 text-xs text-slate-400 italic">
+                                      {m.observaciones}
+                                    </p>
+                                  )}
+                                </div>
+                                <button
+                                  onClick={() => handleEliminarMetrica(m.id)}
+                                  className="shrink-0 rounded-full border border-red-200 px-2 py-1 text-xs text-red-600 hover:bg-red-50"
+                                >
+                                  ✕
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="rounded-3xl border border-slate-200 bg-white p-5 shadow-sm">
+                          <h3 className="font-semibold text-slate-900 mb-1">
+                            Registrar métrica
+                          </h3>
+                          <p className="text-xs text-slate-400 mb-4">
+                            Solo se requiere deportista + actividad + al menos
+                            un valor.
+                          </p>
+
+                          <div className="grid gap-4 sm:grid-cols-2">
+                            <FormField label="Deportista">
+                              <select
+                                value={metricForm.deportistaId}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    deportistaId: e.target.value,
+                                  })
+                                }
+                                className={inputCls()}
+                              >
+                                <option value="">Selecciona</option>
+                                {asistencia.map((a) => (
+                                  <option
+                                    key={a.deportistaId}
+                                    value={a.deportistaId}
+                                  >
+                                    {a.nombre}
+                                  </option>
+                                ))}
+                              </select>
+                            </FormField>
+
+                            <FormField label="Actividad de la sesión">
+                              <select
+                                value={metricForm.sesionActividadId}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    sesionActividadId: e.target.value,
+                                  })
+                                }
+                                className={inputCls()}
+                              >
+                                <option value="">Selecciona</option>
+                                {sesionActividades.map((sa) => (
+                                  <option
+                                    key={sa.sesionActividadId}
+                                    value={sa.sesionActividadId}
+                                  >
+                                    {sa.actividadNombre}
+                                  </option>
+                                ))}
+                              </select>
+                            </FormField>
+
+                            <FormField label="Tiempo (min)">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={metricForm.tiempo}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    tiempo: e.target.value,
+                                  })
+                                }
+                                placeholder="Ej. 22.5"
+                                className={inputCls()}
+                              />
+                            </FormField>
+
+                            <FormField label="Distancia (m)">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={metricForm.distancia}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    distancia: e.target.value,
+                                  })
+                                }
+                                placeholder="Ej. 400"
+                                className={inputCls()}
+                              />
+                            </FormField>
+
+                            <FormField label="Velocidad (m/s)">
+                              <input
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={metricForm.velocidad}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    velocidad: e.target.value,
+                                  })
+                                }
+                                placeholder="Ej. 3.5"
+                                className={inputCls()}
+                              />
+                            </FormField>
+
+                            <FormField label="Técnica (1–10)">
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={metricForm.tecnica}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    tecnica: e.target.value,
+                                  })
+                                }
+                                placeholder="1 a 10"
+                                className={inputCls()}
+                              />
+                            </FormField>
+
+                            <FormField label="Rendimiento físico (1–10)">
+                              <input
+                                type="number"
+                                min="1"
+                                max="10"
+                                value={metricForm.rendimientoFisico}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    rendimientoFisico: e.target.value,
+                                  })
+                                }
+                                placeholder="1 a 10"
+                                className={inputCls()}
+                              />
+                            </FormField>
+
+                            <FormField label="Observaciones">
+                              <textarea
+                                rows={2}
+                                value={metricForm.observaciones}
+                                onChange={(e) =>
+                                  setMetricForm({
+                                    ...metricForm,
+                                    observaciones: e.target.value,
+                                  })
+                                }
+                                placeholder="Notas adicionales..."
+                                className={`resize-none ${inputCls()}`}
+                              />
+                            </FormField>
+                          </div>
+
+                          <PrimaryBtn onClick={handleRegistrarMetrica}>
+                            Registrar métrica
+                          </PrimaryBtn>
+                        </div>
+                      </>
+                    )}
                   </div>
                 </div>
               </SectionCard>
@@ -1574,30 +1905,366 @@ export default function PanelEntrenador() {
             {activeSection === "Rendimiento" && (
               <SectionCard
                 title="Rendimiento"
-                subtitle="Visualiza progreso y comparaciones de deportistas."
+                subtitle="Visualiza progreso, comparaciones y asistencia de tus deportistas."
               >
-                {performanceReports.length === 0 ? (
-                  <p className="text-sm text-slate-500">
-                    No hay reportes de rendimiento disponibles aún.
-                  </p>
-                ) : (
-                  <div className="grid gap-4 lg:grid-cols-2">
-                    {performanceReports.map((r) => (
-                      <div
-                        key={r.id}
-                        className="rounded-3xl border border-slate-200 bg-slate-50 p-5"
+                {/* Selector de gráfica */}
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {[
+                    { key: "evolucion", label: "📈 Evolución técnica" },
+                    { key: "comparacion", label: "📊 Comparación sesión" },
+                    { key: "asistencia", label: "✅ Asistencia" },
+                    { key: "promedios", label: "⚡ Promedios físicos" },
+                  ].map((g) => (
+                    <button
+                      key={g.key}
+                      onClick={() => {
+                        setRendGrafica(g.key);
+                        setRendData([]);
+                      }}
+                      className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
+                        rendGrafica === g.key
+                          ? "bg-blue-600 text-white"
+                          : "bg-slate-100 text-slate-600 hover:bg-blue-50"
+                      }`}
+                    >
+                      {g.label}
+                    </button>
+                  ))}
+                </div>
+                {/* Filtros */}
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+                  {/* Grupo — requerido en asistencia y promedios */}
+                  <div>
+                    <label className="block text-xs font-medium text-slate-500 mb-1">
+                      Grupo
+                      {rendGrafica === "asistencia" ||
+                      rendGrafica === "promedios"
+                        ? " *"
+                        : ""}
+                    </label>
+                    <select
+                      value={rendGrupoId}
+                      onChange={(e) => setRendGrupoId(e.target.value)}
+                      className={inputCls()}
+                    >
+                      <option value="">
+                        {rendGrafica === "asistencia" ||
+                        rendGrafica === "promedios"
+                          ? "Selecciona"
+                          : "Todos"}
+                      </option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>
+                          {g.nombre}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  {/* Deportista — solo en evolución */}
+                  {rendGrafica === "evolucion" && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Deportista *
+                      </label>
+                      <select
+                        value={rendDeportistaId}
+                        onChange={(e) => setRendDeportistaId(e.target.value)}
+                        className={inputCls()}
                       >
-                        <h3 className="font-semibold text-slate-900">
-                          {r.deportista}
+                        <option value="">Selecciona</option>
+                        {athletes.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Sesión — solo en comparación */}
+                  {rendGrafica === "comparacion" && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Sesión *
+                      </label>
+                      <select
+                        value={rendSesionId}
+                        onChange={(e) => setRendSesionId(e.target.value)}
+                        className={inputCls()}
+                      >
+                        <option value="">Selecciona</option>
+                        {sesionesParaRendimiento.map((s) => (
+                          <option key={s.id} value={s.id}>
+                            {s.grupoNombre} — {s.fecha}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Actividad — en evolución y comparación */}
+                  {(rendGrafica === "evolucion" ||
+                    rendGrafica === "comparacion") && (
+                    <div>
+                      <label className="block text-xs font-medium text-slate-500 mb-1">
+                        Actividad (opcional)
+                      </label>
+                      <select
+                        value={rendActividadId}
+                        onChange={(e) => setRendActividadId(e.target.value)}
+                        className={inputCls()}
+                      >
+                        <option value="">Todas</option>
+                        {actividades.map((a) => (
+                          <option key={a.id} value={a.id}>
+                            {a.nombre}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
+
+                  {/* Botón generar */}
+                  <div className="flex items-end">
+                    <button
+                      onClick={cargarRendimiento}
+                      disabled={rendLoading}
+                      className="w-full rounded-xl bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    >
+                      {rendLoading ? "Cargando..." : "Generar gráfica"}
+                    </button>
+                  </div>
+                </div>
+                {/* Área de gráfica */}
+                {rendData.length === 0 && !rendLoading && (
+                  <div className="rounded-3xl border border-slate-200 bg-slate-50 p-12 text-center">
+                    <p className="text-slate-400 text-sm">
+                      Selecciona los filtros y haz clic en "Generar gráfica".
+                    </p>
+                  </div>
+                )}
+                {rendData.length > 0 && (
+                  <div className="rounded-3xl border border-slate-200 bg-white p-6">
+                    {/* GRÁFICA 1: Evolución técnica/rendimiento — líneas */}
+                    {rendGrafica === "evolucion" && (
+                      <>
+                        <h3 className="font-semibold text-slate-900 mb-4">
+                          Evolución — Técnica y Rendimiento físico
                         </h3>
-                        <p className="mt-2 text-sm text-slate-500">
-                          {r.detalle}
+                        <ResponsiveContainer width="100%" height={320}>
+                          <LineChart
+                            data={rendData}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f1f5f9"
+                            />
+                            <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                            <YAxis domain={[0, 10]} tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: "12px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px",
+                              }}
+                              formatter={(v) =>
+                                v != null ? Number(v).toFixed(1) : "-"
+                              }
+                            />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="tecnica"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              name="Técnica (1–10)"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="rendimiento"
+                              stroke="#10b981"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              name="Rendimiento físico (1–10)"
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </>
+                    )}
+
+                    {/* GRÁFICA 2: Comparación de deportistas — barras */}
+                    {rendGrafica === "comparacion" && (
+                      <>
+                        <h3 className="font-semibold text-slate-900 mb-4">
+                          Comparación de deportistas en la sesión
+                        </h3>
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart
+                            data={rendData}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 40 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f1f5f9"
+                            />
+                            <XAxis
+                              dataKey="deportista"
+                              tick={{
+                                fontSize: 10,
+                                angle: -30,
+                                textAnchor: "end",
+                              }}
+                            />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: "12px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px",
+                              }}
+                              formatter={(v) =>
+                                v != null ? Number(v).toFixed(1) : "-"
+                              }
+                            />
+                            <Legend />
+                            <Bar
+                              dataKey="tecnica"
+                              fill="#3b82f6"
+                              name="Técnica"
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="rendimiento"
+                              fill="#10b981"
+                              name="Rendimiento"
+                              radius={[4, 4, 0, 0]}
+                            />
+                            <Bar
+                              dataKey="tiempo"
+                              fill="#f59e0b"
+                              name="Tiempo (min)"
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </>
+                    )}
+
+                    {/* GRÁFICA 3: Asistencia — barras apiladas */}
+                    {rendGrafica === "asistencia" && (
+                      <>
+                        <h3 className="font-semibold text-slate-900 mb-1">
+                          Asistencia por deportista
+                        </h3>
+                        <p className="text-xs text-slate-400 mb-4">
+                          Total sesiones con registro: {rendData[0]?.total ?? 0}
                         </p>
-                        <p className="mt-4 text-lg font-semibold text-blue-700">
-                          {r.progreso}
-                        </p>
-                      </div>
-                    ))}
+                        <ResponsiveContainer width="100%" height={320}>
+                          <BarChart
+                            data={rendData}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 40 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f1f5f9"
+                            />
+                            <XAxis
+                              dataKey="deportista"
+                              tick={{
+                                fontSize: 10,
+                                angle: -30,
+                                textAnchor: "end",
+                              }}
+                            />
+                            <YAxis
+                              allowDecimals={false}
+                              tick={{ fontSize: 11 }}
+                            />
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: "12px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px",
+                              }}
+                            />
+                            <Legend />
+                            <Bar
+                              dataKey="presentes"
+                              fill="#10b981"
+                              name="Presentes"
+                              stackId="a"
+                            />
+                            <Bar
+                              dataKey="ausentes"
+                              fill="#f87171"
+                              name="Ausentes"
+                              stackId="a"
+                              radius={[4, 4, 0, 0]}
+                            />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </>
+                    )}
+
+                    {/* GRÁFICA 4: Promedios físicos por sesión — líneas múltiples */}
+                    {rendGrafica === "promedios" && (
+                      <>
+                        <h3 className="font-semibold text-slate-900 mb-4">
+                          Promedio distancia / velocidad / tiempo por sesión
+                        </h3>
+                        <ResponsiveContainer width="100%" height={320}>
+                          <LineChart
+                            data={rendData}
+                            margin={{ top: 5, right: 20, left: 0, bottom: 5 }}
+                          >
+                            <CartesianGrid
+                              strokeDasharray="3 3"
+                              stroke="#f1f5f9"
+                            />
+                            <XAxis dataKey="fecha" tick={{ fontSize: 11 }} />
+                            <YAxis tick={{ fontSize: 11 }} />
+                            <Tooltip
+                              contentStyle={{
+                                borderRadius: "12px",
+                                border: "1px solid #e2e8f0",
+                                fontSize: "12px",
+                              }}
+                              formatter={(v) =>
+                                v != null ? Number(v).toFixed(2) : "-"
+                              }
+                            />
+                            <Legend />
+                            <Line
+                              type="monotone"
+                              dataKey="tiempo"
+                              stroke="#f59e0b"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              name="Tiempo prom. (min)"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="distancia"
+                              stroke="#3b82f6"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              name="Distancia prom. (m)"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="velocidad"
+                              stroke="#8b5cf6"
+                              strokeWidth={2}
+                              dot={{ r: 4 }}
+                              name="Velocidad prom. (m/s)"
+                            />
+                          </LineChart>
+                        </ResponsiveContainer>
+                      </>
+                    )}
                   </div>
                 )}
               </SectionCard>
