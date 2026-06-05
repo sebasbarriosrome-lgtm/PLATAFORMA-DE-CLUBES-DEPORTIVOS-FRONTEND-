@@ -1,186 +1,150 @@
+// Importa el hook useState de React
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { authService } from "../services/Auth.service";
 
-export default function Login() {
+// Importa hooks de React Router para navegación y ubicación actual
+import { useNavigate, useLocation } from "react-router-dom";
+
+// Componente principal Login
+const Login = () => {
+  // Hook para navegar entre rutas
   const navigate = useNavigate();
-  const returnPath = "/UserProfile";
 
+  // Hook para obtener información de la ruta actual
+  const location = useLocation();
+
+  // Determina la ruta de retorno dependiendo desde dónde llegó el usuario
+  const returnPath = location.state?.from === "clubs" ? "/clubs" : "/";
+
+  // Estado para almacenar datos del formulario
   const [form, setForm] = useState({ email: "", password: "" });
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
 
+  // Estado para mensajes de error
+  const [error, setError] = useState("");
+
+  // Función que maneja cambios en los inputs
   const handleChange = (e) => {
+    // Actualiza dinámicamente el campo modificado
     setForm({ ...form, [e.target.name]: e.target.value });
+
+    // Limpia el mensaje de error al escribir
     setError("");
   };
 
-  const handleSubmit = async (e) => {
+  // Función que maneja el envío del formulario
+  const handleSubmit = (e) => {
+    // Evita recargar la página
     e.preventDefault();
 
+    // Validación básica frontend
     if (!form.email || !form.password) {
+      // Muestra mensaje de error si hay campos vacíos
       setError("Todos los campos son obligatorios");
+
+      // Detiene la ejecución
       return;
     }
 
-    setLoading(true);
-    try {
-      const data = await authService.login(form);
-      localStorage.setItem("token", data.token);
-      localStorage.setItem("email", data.email);
-      localStorage.setItem("rol", data.rol);
-      navigate(returnPath);
-    } catch (err) {
-      console.error(err);
-      setError(err.message || "Error al conectar con el servidor");
-    } finally {
-      setLoading(false);
-    }
+    // Navega al inicio después del login
+    navigate("/");
   };
 
-  const EyeIcon = ({ open }) => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {open ? (
-        <>
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      ) : (
-        <>
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-          <line x1="1" y1="1" x2="23" y2="23" />
-        </>
-      )}
-    </svg>
-  );
-
-  const fieldClass =
-    "w-full px-4 py-3 rounded-lg border bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition border-slate-200";
-
+  // Renderizado del componente
   return (
-    <div className="min-h-screen w-full bg-white text-slate-900">
-      {/* Botón volver */}
-      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-md border border-slate-200">
+    // Contenedor principal
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white px-4 py-10">
+      {/* Botón flotante de regreso */}
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-3 py-2 text-sm shadow-lg shadow-black/40">
+        {/* Botón volver */}
         <button
           type="button"
-          onClick={() => navigate(-1)}
-          className="font-semibold text-blue-600 hover:text-blue-700"
+          // Navega a la ruta anterior correspondiente
+          onClick={() => navigate(returnPath)}
+          // Estilos del botón
+          className="font-semibold text-cyan-200 hover:text-cyan-100"
         >
           ← Volver
         </button>
-        <span className="text-slate-900 font-bold">ClubZone</span>
+
+        {/* Nombre del sistema */}
+        <span className="text-slate-100 font-bold">ClubZone</span>
       </div>
 
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-        {/* IZQUIERDA: formulario */}
-        <div className="flex items-center justify-center px-6 py-16 lg:px-16">
-          <div className="w-full max-w-md">
-            <div className="mb-8">
-              <h2 className="text-3xl font-extrabold text-slate-900">
-                Account login
-              </h2>
-              <p className="mt-2 text-slate-500">
-                Ingresa tus credenciales y vuelve al sistema
-              </p>
-            </div>
+      {/* Tarjeta principal del login */}
+      <div className="w-full max-w-3xl bg-slate-900/60 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 p-8 sm:p-10 shadow-[0_20px_60px_rgba(16,185,129,0.35)] animate-fadeIn">
+        {/* Encabezado */}
+        <div className="text-center mb-7">
+          {/* Título */}
+          <h2 className="text-4xl sm:text-5xl font-extrabold tracking-tight">
+            Iniciar sesión
+          </h2>
 
-            {error && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                {error}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Email */}
-              <div>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="E-mail"
-                  value={form.email}
-                  onChange={handleChange}
-                  className={fieldClass}
-                />
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder="Password"
-                    value={form.password}
-                    onChange={handleChange}
-                    className={`${fieldClass} pr-12`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-600"
-                    tabIndex={-1}
-                  >
-                    <EyeIcon open={showPassword} />
-                  </button>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 px-6 py-3 font-semibold text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {loading ? "Entrando..." : "Entrar"}
-              </button>
-            </form>
-
-            <p className="mt-8 text-sm text-slate-600">
-              ¿No tienes cuenta?{" "}
-              <span
-                onClick={() => navigate("/register")}
-                className="text-blue-600 cursor-pointer font-semibold hover:text-blue-700"
-              >
-                Regístrate aquí
-              </span>
-            </p>
-          </div>
+          {/* Texto descriptivo */}
+          <p className="mt-2 text-cyan-200/90">
+            Ingresa tus credenciales y vuelve al sistema.
+          </p>
         </div>
 
-        {/* DERECHA: panel decorativo */}
-        <div className="relative hidden lg:flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-sky-100 to-blue-200">
-          {/* Formas geométricas */}
-          <div className="absolute inset-0">
-            <div className="absolute -top-10 -left-10 w-72 h-24 bg-blue-500/80 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-24 left-40 w-56 h-20 bg-white rotate-[-25deg] rounded-md shadow-lg animate-drift" />
-            <div className="absolute top-10 right-10 w-80 h-28 bg-blue-600 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-1/2 -left-16 w-96 h-24 bg-sky-300 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-20 left-20 w-72 h-24 bg-blue-700 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute bottom-10 right-0 w-80 h-28 bg-blue-400 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-32 right-32 w-40 h-16 bg-white rotate-[-25deg] rounded-md shadow-md animate-float" />
-            <div className="absolute top-1/4 right-1/3 w-64 h-20 bg-blue-300 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-1/4 left-1/2 w-48 h-16 bg-sky-200 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-2/3 right-1/4 w-56 h-18 bg-blue-500 rotate-[-25deg] rounded-md animate-drift" />
+        {/* Formulario */}
+        <form onSubmit={handleSubmit}>
+          {/* Contenedor de inputs */}
+          <div className="grid grid-cols-1 gap-4">
+            {/* Campo de correo */}
+            <input
+              type="email"
+              // Nombre del campo
+              name="email"
+              // Texto placeholder
+              placeholder="Correo electrónico"
+              // Valor actual del estado
+              value={form.email}
+              // Evento al escribir
+              onChange={handleChange}
+              // Clases de estilo
+              className="w-full p-3 sm:p-4 rounded-xl bg-slate-800/70 border border-cyan-400/20 placeholder:text-slate-400 text-white focus:ring-2 focus:ring-cyan-400 focus:border-cyan-300 outline-none transition-all"
+            />
+
+            {/* Campo de contraseña */}
+            <input
+              type="password"
+              // Nombre del campo
+              name="password"
+              // Placeholder
+              placeholder="Contraseña"
+              // Valor actual
+              value={form.password}
+              // Evento al cambiar contenido
+              onChange={handleChange}
+              // Estilos visuales
+              className="w-full p-3 sm:p-4 rounded-xl bg-slate-800/70 border border-cyan-400/20 placeholder:text-slate-400 text-white focus:ring-2 focus:ring-cyan-400 focus:border-cyan-300 outline-none transition-all"
+            />
           </div>
 
-          {/* Logo central */}
-          <div className="relative z-10 flex items-center gap-2 px-6 py-4 rounded-xl bg-white/90 backdrop-blur shadow-2xl">
-            <span className="text-5xl font-extrabold text-slate-900">Club</span>
-            <span className="text-5xl font-extrabold text-white bg-blue-600 px-4 py-1 rounded-md">
-              Zone
+          {/* Muestra mensaje de error si existe */}
+          {error && <p className="text-red-400 text-sm mb-4 mt-3">{error}</p>}
+
+          {/* Botón de enviar formulario */}
+          <button className="w-full mt-5 py-4 font-bold text-lg text-slate-950 rounded-xl bg-gradient-to-r from-cyan-400 via-emerald-400 to-cyan-300 hover:from-cyan-500 hover:via-emerald-500 hover:to-cyan-400 shadow-lg shadow-cyan-500/40 transition-all duration-300">
+            Entrar
+          </button>
+
+          {/* Texto de registro */}
+          <p className="mt-5 text-center text-sm text-cyan-100/80">
+            {/* Texto introductorio */}
+            ¿No tienes cuenta? {/* Enlace para registrarse */}
+            <span
+              // Navega hacia la página de registro
+              onClick={() => navigate("/register")}
+              // Estilos visuales
+              className="text-emerald-400 cursor-pointer hover:text-emerald-300"
+            >
+              Regístrate
             </span>
-          </div>
-        </div>
+          </p>
+        </form>
       </div>
     </div>
   );
-}
+};
+
+// Exporta el componente Login
+export default Login;

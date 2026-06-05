@@ -1,254 +1,361 @@
+// Importa el hook useState de React
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { authService } from "../services/Auth.service";
 
+// Importa hooks de React Router para navegación y ubicación actual
+import { useNavigate, useLocation } from "react-router-dom";
+
+// Componente principal Register
 export default function Register() {
+  // Hook para navegar entre rutas
   const navigate = useNavigate();
 
-  const [formData, setFormData] = useState({
-    nombre: "",
-    apellido: "",
-    email: "",
-    password: "",
-  });
+  // Hook para obtener la ubicación actual
+  const location = useLocation();
 
-  const [showPassword, setShowPassword] = useState(false);
-  const [errors, setErrors] = useState({});
-  const [loading, setLoading] = useState(false);
-  const [successMessage, setSuccessMessage] = useState("");
+  // Determina la ruta de retorno según desde dónde llegó el usuario
+  const returnPath = location.state?.from === "clubs" ? "/clubs" : "/";
 
-  const handleChange = (e) => {
-    setFormData({ ...formData, [e.target.name]: e.target.value });
-    // limpiar solo error general
-    setErrors((prev) => ({ ...prev, general: "" }));
-  };
+  // Estados del formulario
+  const [tipo, setTipo] = useState("deportista"); // Tipo de usuario
+  const [deporte, setDeporte] = useState("Seleccionar deporte"); // Deporte seleccionado
+  const [fechaNacimiento, setFechaNacimiento] = useState(""); // Fecha de nacimiento
+  const [primerNombre, setPrimerNombre] = useState(""); // Primer nombre
+  const [segundoNombre, setSegundoNombre] = useState(""); // Segundo nombre
+  const [primerApellido, setPrimerApellido] = useState(""); // Primer apellido
+  const [segundoApellido, setSegundoApellido] = useState(""); // Segundo apellido
+  const [telefono, setTelefono] = useState(""); // Teléfono
+  const [correo, setCorreo] = useState(""); // Correo electrónico
+  const [password, setPassword] = useState(""); // Contraseña
+  const [errors, setErrors] = useState({}); // Objeto de errores
 
-  const validateForm = () => {
+  // Lista de deportes disponibles
+  const deportes = [
+    "Seleccionar deporte",
+    "Fútbol",
+    "Baloncesto",
+    "Natación",
+    "Atletismo",
+    "Tenis",
+    "Ciclismo",
+  ];
+
+  // Función para validar los campos del formulario
+  const validate = () => {
+    // Objeto donde se almacenan los errores encontrados
     const newErrors = {};
 
-    if (!formData.nombre) newErrors.nombre = "El nombre es obligatorio";
-    if (!formData.apellido) newErrors.apellido = "El apellido es obligatorio";
-    if (!formData.email) newErrors.email = "El email es obligatorio";
-    if (!formData.password || formData.password.length < 6)
-      newErrors.password = "Mínimo 6 caracteres";
+    // Validación del primer nombre
+    if (!primerNombre.trim()) {
+      newErrors.primerNombre = "Primer nombre es requerido";
+    } else if (!/^[a-zA-Z\s]+$/.test(primerNombre.trim())) {
+      newErrors.primerNombre = "Solo letras y espacios permitidos";
+    }
 
-    return newErrors;
+    // Validación del segundo nombre
+    if (!segundoNombre.trim()) {
+      newErrors.segundoNombre = "Segundo nombre es requerido";
+    } else if (!/^[a-zA-Z\s]+$/.test(segundoNombre.trim())) {
+      newErrors.segundoNombre = "Solo letras y espacios permitidos";
+    }
+
+    // Validación del primer apellido
+    if (!primerApellido.trim()) {
+      newErrors.primerApellido = "Primer apellido es requerido";
+    } else if (!/^[a-zA-Z\s]+$/.test(primerApellido.trim())) {
+      newErrors.primerApellido = "Solo letras y espacios permitidos";
+    }
+
+    // Validación del segundo apellido
+    if (!segundoApellido.trim()) {
+      newErrors.segundoApellido = "Segundo apellido es requerido";
+    } else if (!/^[a-zA-Z\s]+$/.test(segundoApellido.trim())) {
+      newErrors.segundoApellido = "Solo letras y espacios permitidos";
+    }
+
+    // Validación del teléfono
+    if (!telefono.trim()) {
+      newErrors.telefono = "Número de teléfono es requerido";
+    } else if (!/^\d{10}$/.test(telefono.trim())) {
+      newErrors.telefono = "Debe ser un número de 10 dígitos";
+    }
+
+    // Validación del correo
+    if (!correo.trim()) {
+      newErrors.correo = "Correo personal es requerido";
+    } else if (!/\S+@\S+\.\S+/.test(correo)) {
+      newErrors.correo = "Correo no válido";
+    }
+
+    // Validación de la contraseña
+    if (!password.trim()) {
+      newErrors.password = "Contraseña es requerida";
+    } else if (password.length < 8) {
+      newErrors.password = "Debe tener al menos 8 caracteres";
+    } else if (!/(?=.*[A-Z])/.test(password)) {
+      newErrors.password = "Debe contener al menos una mayúscula";
+    }
+
+    // Validación del deporte seleccionado
+    if (!deporte || deporte === "Seleccionar deporte") {
+      newErrors.deporte = "Selecciona un deporte";
+    }
+
+    // Validación de la fecha de nacimiento
+    if (!fechaNacimiento) {
+      newErrors.fechaNacimiento = "Fecha de nacimiento es requerida";
+    } else {
+      // Convierte la fecha ingresada y la actual
+      const nacimiento = new Date(fechaNacimiento);
+      const hoy = new Date();
+
+      // Verifica que la fecha no sea futura
+      if (nacimiento > hoy) {
+        newErrors.fechaNacimiento = "Fecha no puede ser futura";
+      }
+    }
+
+    // Actualiza el estado de errores
+    setErrors(newErrors);
+
+    // Retorna true si no hay errores
+    return Object.keys(newErrors).length === 0;
   };
 
+  // Función que maneja el envío del formulario
   const handleSubmit = async (e) => {
+    // Previene el comportamiento por defecto
     e.preventDefault();
 
-    const newErrors = validateForm();
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    // Si la validación falla, detiene ejecución
+    if (!validate()) return;
 
-    setLoading(true);
-    setErrors({});
-    setSuccessMessage("");
+    // Objeto con los datos a enviar
+    const data = {
+      tipo,
+      primerNombre,
+      segundoNombre,
+      primerApellido,
+      segundoApellido,
+      telefono,
+      correo,
+      password,
+      deporte,
+      fechaNacimiento,
+    };
 
     try {
-      const data = await authService.register(formData);
+      // Realiza petición POST al backend
+      const res = await fetch("http://localhost:8080/auth/register", {
+        method: "POST",
 
-      setSuccessMessage(data.message || "Usuario registrado correctamente");
-      setFormData({ nombre: "", apellido: "", email: "", password: "" });
+        // Cabeceras de la petición
+        headers: {
+          "Content-Type": "application/json",
+        },
 
-      setTimeout(() => navigate("/login"), 2000);
-    } catch (err) {
-      setErrors({
-        general: err.message || "No se pudo completar el registro",
+        // Convierte los datos a JSON
+        body: JSON.stringify(data),
       });
-    } finally {
-      setLoading(false);
+
+      // Obtiene respuesta como texto
+      const dataRes = await res.text();
+
+      // Si hay error en la respuesta
+      if (!res.ok) {
+        throw new Error(dataRes);
+      }
+
+      // Muestra alerta de éxito
+      alert("Usuario registrado");
+
+      // Redirige al login
+      navigate("/login");
+    } catch (err) {
+      // Muestra error en consola
+      console.error(err);
     }
   };
 
-  const EyeIcon = ({ open }) => (
-    <svg
-      width="20"
-      height="20"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      {open ? (
-        <>
-          <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z" />
-          <circle cx="12" cy="12" r="3" />
-        </>
-      ) : (
-        <>
-          <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24" />
-          <line x1="1" y1="1" x2="23" y2="23" />
-        </>
-      )}
-    </svg>
-  );
+  // Clases reutilizables para inputs
+  const inputClass =
+    "w-full p-3 sm:p-4 rounded-xl bg-slate-800/70 border border-cyan-400/20 placeholder:text-slate-400 text-white focus:ring-2 focus:ring-cyan-400 focus:border-cyan-300 outline-none transition-all";
 
-  const fieldClass = (err) =>
-    `w-full px-4 py-3 rounded-lg border bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition ${
-      err ? "border-red-400" : "border-slate-200"
-    }`;
+  // Clases para mostrar errores
+  const errorClass = "text-red-400 text-sm mt-1";
 
+  // Renderizado del componente
   return (
-    <div className="min-h-screen w-full bg-white text-slate-900">
-      {/* Botón volver */}
-      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-white px-3 py-2 text-sm shadow-md border border-slate-200">
+    // Contenedor principal
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-slate-950 via-indigo-950 to-slate-900 text-white px-4 py-10">
+      {/* Botón flotante de regreso */}
+      <div className="absolute left-4 top-4 z-50 flex items-center gap-2 rounded-full bg-slate-900/90 px-3 py-2 text-sm shadow-lg shadow-black/40">
+        {/* Botón volver */}
         <button
           type="button"
-          onClick={() => navigate(-1)}
-          className="font-semibold text-blue-600 hover:text-blue-700"
+          // Navega a la ruta anterior
+          onClick={() => navigate(returnPath)}
+          // Estilos
+          className="font-semibold text-cyan-200 hover:text-cyan-100"
         >
           ← Volver
         </button>
-        <span className="text-slate-900 font-bold">ClubZone</span>
+
+        {/* Nombre de la app */}
+        <span className="text-slate-100 font-bold">ClubZone</span>
       </div>
 
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-        {/* IZQUIERDA: formulario */}
-        <div className="flex items-center justify-center px-6 py-16 lg:px-16">
-          <div className="w-full max-w-md">
-            <div className="mb-8">
-              <h2 className="text-3xl font-extrabold text-slate-900">
-                Create new account
-              </h2>
-              <p className="mt-2 text-slate-500">
-                Fill out the form below to create a new account
-              </p>
+      {/* Tarjeta del formulario */}
+      <div className="w-full max-w-3xl bg-slate-900/60 backdrop-blur-2xl rounded-3xl border border-cyan-500/20 p-8 sm:p-10 shadow-[0_20px_60px_rgba(16,185,129,0.35)]">
+        {/* Encabezado */}
+        <div className="text-center mb-7">
+          {/* Título */}
+          <h2 className="text-4xl sm:text-5xl font-extrabold">Crear cuenta</h2>
+
+          {/* Subtítulo */}
+          <p className="mt-2 text-cyan-200/90">¡Empieza tu camino deportivo!</p>
+        </div>
+
+        {/* Formulario */}
+        <form onSubmit={handleSubmit}>
+          {/* Selección de tipo de usuario */}
+          <div className="mb-6">
+            <label className="block mb-2 text-cyan-100/80">
+              Tipo de usuario
+            </label>
+            <select
+              value={tipo}
+              onChange={(e) => setTipo(e.target.value)}
+              className={inputClass}
+            >
+              <option value="entrenador">Entrenador</option>
+              <option value="deportista">Deportista</option>
+            </select>
+          </div>
+
+          {/* Inputs de nombres y apellidos */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+            {[
+              ["Primer Nombre", primerNombre, setPrimerNombre, "primerNombre"],
+              [
+                "Segundo Nombre",
+                segundoNombre,
+                setSegundoNombre,
+                "segundoNombre",
+              ],
+              [
+                "Primer Apellido",
+                primerApellido,
+                setPrimerApellido,
+                "primerApellido",
+              ],
+              [
+                "Segundo Apellido",
+                segundoApellido,
+                setSegundoApellido,
+                "segundoApellido",
+              ],
+            ].map(([ph, val, set, key]) => (
+              // Contenedor por cada input
+              <div key={key}>
+                {/* Input */}
+                <input
+                  className={inputClass}
+                  placeholder={ph}
+                  value={val}
+                  onChange={(e) => set(e.target.value)}
+                />
+
+                {/* Mensaje de error */}
+                {errors[key] && <p className={errorClass}>{errors[key]}</p>}
+              </div>
+            ))}
+          </div>
+
+          {/* Inputs de contacto */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+            {/* Teléfono */}
+            <div>
+              <input
+                className={inputClass}
+                placeholder="Teléfono"
+                value={telefono}
+                onChange={(e) => setTelefono(e.target.value)}
+              />
+              {errors.telefono && (
+                <p className={errorClass}>{errors.telefono}</p>
+              )}
             </div>
 
-            {/* ✅ Error general */}
-            {errors.general && (
-              <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm">
-                {errors.general}
-              </div>
-            )}
+            {/* Correo */}
+            <div>
+              <input
+                className={inputClass}
+                type="email"
+                placeholder="Correo"
+                value={correo}
+                onChange={(e) => setCorreo(e.target.value)}
+              />
+              {errors.correo && <p className={errorClass}>{errors.correo}</p>}
+            </div>
 
-            {/* ✅ Mensaje de éxito */}
-            {successMessage && (
-              <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">
-                {successMessage}
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Nombre */}
-              <div>
-                <input
-                  name="nombre"
-                  placeholder="First name"
-                  value={formData.nombre}
-                  onChange={handleChange}
-                  className={fieldClass(errors.nombre)}
-                />
-                {errors.nombre && (
-                  <p className="text-red-600 text-xs mt-1">{errors.nombre}</p>
-                )}
-              </div>
-
-              {/* Apellido */}
-              <div>
-                <input
-                  name="apellido"
-                  placeholder="Last name"
-                  value={formData.apellido}
-                  onChange={handleChange}
-                  className={fieldClass(errors.apellido)}
-                />
-                {errors.apellido && (
-                  <p className="text-red-600 text-xs mt-1">{errors.apellido}</p>
-                )}
-              </div>
-
-              {/* Email */}
-              <div>
-                <input
-                  type="email"
-                  name="email"
-                  placeholder="E-mail"
-                  value={formData.email}
-                  onChange={handleChange}
-                  className={fieldClass(errors.email)}
-                />
-                {errors.email && (
-                  <p className="text-red-600 text-xs mt-1">{errors.email}</p>
-                )}
-              </div>
-
-              {/* Password */}
-              <div>
-                <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    name="password"
-                    placeholder="Password"
-                    value={formData.password}
-                    onChange={handleChange}
-                    className={`${fieldClass(errors.password)} pr-12`}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword((v) => !v)}
-                    className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-600"
-                    tabIndex={-1}
-                  >
-                    <EyeIcon open={showPassword} />
-                  </button>
-                </div>
-                {errors.password && (
-                  <p className="text-red-600 text-xs mt-1">{errors.password}</p>
-                )}
-              </div>
-
-              <button
-                type="submit"
-                disabled={loading}
-                className="mt-2 px-6 py-3 font-semibold text-white rounded-lg bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition"
-              >
-                {loading ? "Registrando..." : "Create account"}
-              </button>
-            </form>
-
-            <p className="mt-8 text-sm text-slate-600">
-              ¿Ya tienes cuenta?{" "}
-              <span
-                onClick={() => navigate("/login")}
-                className="text-blue-600 cursor-pointer font-semibold hover:text-blue-700"
-              >
-                Inicia sesión aquí
-              </span>
-            </p>
-          </div>
-        </div>
-
-        {/* DERECHA: panel decorativo */}
-        <div className="relative hidden lg:flex items-center justify-center overflow-hidden bg-gradient-to-br from-blue-50 via-sky-100 to-blue-200">
-          {/* Formas geométricas */}
-          <div className="absolute inset-0">
-            <div className="absolute -top-10 -left-10 w-72 h-24 bg-blue-500/80 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-24 left-40 w-56 h-20 bg-white rotate-[-25deg] rounded-md shadow-lg animate-drift" />
-            <div className="absolute top-10 right-10 w-80 h-28 bg-blue-600 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-1/2 -left-16 w-96 h-24 bg-sky-300 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-20 left-20 w-72 h-24 bg-blue-700 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute bottom-10 right-0 w-80 h-28 bg-blue-400 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-32 right-32 w-40 h-16 bg-white rotate-[-25deg] rounded-md shadow-md animate-float" />
-            <div className="absolute top-1/4 right-1/3 w-64 h-20 bg-blue-300 rotate-[-25deg] rounded-md animate-drift" />
-            <div className="absolute bottom-1/4 left-1/2 w-48 h-16 bg-sky-200 rotate-[-25deg] rounded-md animate-float" />
-            <div className="absolute top-2/3 right-1/4 w-56 h-18 bg-blue-500 rotate-[-25deg] rounded-md animate-drift" />
+            {/* Contraseña */}
+            <div>
+              <input
+                className={inputClass}
+                type="password"
+                placeholder="Contraseña"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              {errors.password && (
+                <p className={errorClass}>{errors.password}</p>
+              )}
+            </div>
           </div>
 
-          {/* Logo central */}
-          <div className="relative z-10 flex items-center gap-2 px-6 py-4 rounded-xl bg-white/90 backdrop-blur shadow-2xl">
-            <span className="text-5xl font-extrabold text-slate-900">Club</span>
-            <span className="text-5xl font-extrabold text-white bg-blue-600 px-4 py-1 rounded-md">
-              Zone
+          {/* Selector de deporte */}
+          <div className="mb-6">
+            <select
+              value={deporte}
+              onChange={(e) => setDeporte(e.target.value)}
+              className={inputClass}
+            >
+              {deportes.map((d) => (
+                <option key={d}>{d}</option>
+              ))}
+            </select>
+            {errors.deporte && <p className={errorClass}>{errors.deporte}</p>}
+          </div>
+
+          {/* Fecha de nacimiento */}
+          <div className="mb-6">
+            <input
+              type="date"
+              value={fechaNacimiento}
+              onChange={(e) => setFechaNacimiento(e.target.value)}
+              className={inputClass}
+            />
+            {errors.fechaNacimiento && (
+              <p className={errorClass}>{errors.fechaNacimiento}</p>
+            )}
+          </div>
+
+          {/* Botón de registro */}
+          <button className="w-full py-4 font-bold text-lg text-slate-950 rounded-xl bg-gradient-to-r from-cyan-400 to-emerald-400">
+            Registrarme
+          </button>
+
+          {/* Enlace a login */}
+          <p className="mt-5 text-center text-sm text-cyan-100/80">
+            ¿Ya tienes cuenta?{" "}
+            <span
+              onClick={() => navigate("/login")}
+              className="text-emerald-400 cursor-pointer hover:text-emerald-300"
+            >
+              Inicia sesión
             </span>
-          </div>
-        </div>
+          </p>
+        </form>
       </div>
     </div>
   );
